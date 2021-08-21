@@ -1,4 +1,5 @@
 ﻿using DatabaseBuddy.ViewModel;
+using MahApps.Metro.Controls;
 using System.Windows;
 
 namespace DatabaseBuddy.View
@@ -6,7 +7,7 @@ namespace DatabaseBuddy.View
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : MetroWindow
     {
         #region [Ctor]
         public MainWindow()

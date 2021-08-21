@@ -1,4 +1,5 @@
-﻿<Window x:Class="DatabaseBuddy.View.MainWindow"
+﻿<mah:MetroWindow  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls" 
+                  x:Class="DatabaseBuddy.View.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -61,12 +62,13 @@
                 <Button x:Name="btnReload"
                          Height="22"
                          Command="{Binding Reload}"
-                         Margin="0 0 10 0">
-                    <!--<Image Source="/Resources/refresh.png" Height="16"
+                         Margin="0 0 10 0"
+                        Style="{DynamicResource MahApps.Styles.Button.Circle}">
+
+                <!--<Image Source="/Resources/refresh.png" Height="16"
                    Width="16"
                    VerticalAlignment="Center"/>-->
                     <TextBlock Text="Reload" />
-
                 </Button>
                 <Button HorizontalContentAlignment="Left"
                          Height="22"
@@ -312,4 +314,4 @@
              FontSize="10" />
         </Grid>
     </Grid>
-</Window>
+</mah:MetroWindow>
