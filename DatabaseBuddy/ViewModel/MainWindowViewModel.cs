@@ -30,8 +30,8 @@ namespace DatabaseBuddy.ViewModel
         private List<string> m_systemDataBases;
         private List<string> m_UnusedFiles;
         private string m_Server = "localhost";
-        private readonly string m_User = "GoBabyGo"; //TODO: TASK:  Replace via Login Dialog
-        private readonly string m_Password = "comeback"; //TODO: TASK: Replace via Login Dialog
+        private readonly string m_User; //TODO: TASK:  Replace via Login Dialog
+        private readonly string m_Password; //TODO: TASK: Replace via Login Dialog
         private const string ODBC32BitRegPath = @"SOFTWARE\WOW6432Node\ODBC\ODBC.INI";
         private string m_MSSQLStudioPath;
         private DBConnection m_db;
