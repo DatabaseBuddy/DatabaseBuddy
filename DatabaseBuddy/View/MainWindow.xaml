@@ -1,0 +1,315 @@
+﻿<Window x:Class="DatabaseBuddy.View.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+        xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
+        xmlns:OperationVisualization="clr-namespace:DatabaseBuddy.Core.OperationVisualization;assembly=DatabaseBuddy.Core"
+        mc:Ignorable="d"
+        Title="DatabaseBuddy" Height="450"
+        Width="600"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        Loaded="__WindowLoaded_Start">
+    <Grid x:Name="MainGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="28"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid x:Name="HeaderGrid" Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="95" />
+                <ColumnDefinition Width="90" />
+            </Grid.ColumnDefinitions>
+            <!--<Image Grid.Column="0"
+             Source="/Resources/**Header.png" 
+             Stretch="Fill" />
+            <Image Grid.Column="1" 
+             Source="/Resources/**Logo Extended.png"
+             HorizontalAlignment="Left" />
+            <Canvas Grid.Column="2" Canvas.ZIndex="1">
+                <Image Height="25"
+               Width="58" 
+               Source="/Resources/**Logo.png" 
+               ToolTipService.ToolTip="Online Webseite Link"/>
+            </Canvas>-->
+        </Grid>
+
+        <Grid x:Name="DataBaseGrid" 
+          Grid.Row="1" 
+          VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition MaxHeight="30"/>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="1*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                <Label Content="Databases"
+                        Height="30"
+                        VerticalAlignment="Center"
+                        Margin="0 0 10 0"/>
+                <Label Content="{Binding Items.Count, ElementName=lbDataBases}"
+                        Height="30"
+                        VerticalAlignment="Center"
+                        Margin="0 0 10 0"/>
+                <Button x:Name="btnReload"
+                         Height="22"
+                         Command="{Binding Reload}"
+                         Margin="0 0 10 0">
+                    <!--<Image Source="/Resources/refresh.png" Height="16"
+                   Width="16"
+                   VerticalAlignment="Center"/>-->
+                    <TextBlock Text="Reload" />
+
+                </Button>
+                <Button HorizontalContentAlignment="Left"
+                         Height="22"
+                         Content="New Database"
+                         Command="{Binding CreateNewDatabase}"
+                         Margin="0 0 10 0"/>
+                <Button HorizontalContentAlignment="Left"
+                         Height="22"
+                         Content="Include System databases"
+                         Command="{Binding ShowSystemDatabases}"
+                         Margin="0 0 10 0"/>
+                <Button HorizontalContentAlignment="Left"
+                         Height="22"
+                         Content="{Binding MultiModeToggleCaption}"
+                         Command="{Binding SwitchMultiMode}"
+                         Margin="0 0 10 0"/>
+                <Button HorizontalContentAlignment="Left"
+                         Height="22"
+                         Visibility="{Binding SelectAllVisibility}"
+                         Content="Select All"
+                         Command="{Binding SelectAll}"
+                         Margin="0 0 10 0"/>
+                <Button HorizontalContentAlignment="Left"
+                         Height="22"
+                         Content="Filesize Monitoring"
+                         Command="{Binding SwitchTracking}"
+                         Margin="0 0 10 0"/>
+                <Button Height="22"
+                         Content="Reconnect"
+                         Command="{Binding Reconnect}"
+                         Margin="0 0 10 0"/>
+                <TextBox Height="22"
+                        Text="{Binding ServerName, Mode=TwoWay}"
+                        MinWidth="50"
+                        Margin="0 0 10 0"/>
+                <StackPanel Orientation="Horizontal"
+                    Margin="0 0 10 0"
+                    Visibility="{Binding IsAdmin}">
+                    <Image Source="/Resources/warning.png"
+                 Visibility="Visible"
+                 Height="16"
+                 Width="16"/>
+                    <TextBlock Text="Some functions require admin permissions" 
+                            VerticalAlignment="Center"
+                            Margin="5 0 0 0"/>
+                </StackPanel>
+            </StackPanel>
+            <ListBox x:Name="lbDataBases" 
+                      Grid.Row="1" 
+                      Grid.ColumnSpan="2"
+                      Margin="0 0 0 10"
+                      Height="Auto"
+                      VerticalAlignment="Top"
+                      SelectionMode="{Binding ListBoxSelectionMode}"
+                      ItemsSource="{Binding DBEntries}"
+                      ScrollViewer.VerticalScrollBarVisibility="Visible">
+                <i:Interaction.Triggers>
+                    <i:EventTrigger EventName="MouseEnter">
+                        <i:InvokeCommandAction Command="{Binding GotLbFocus}"
+                                   CommandParameter="{Binding RelativeSource={RelativeSource FindAncestor,
+              AncestorType={x:Type ListBox}}}"/>
+                    </i:EventTrigger>
+                </i:Interaction.Triggers>
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Delete"
+                        Command="{Binding DeleteSelectedDataBase}"
+                        IsEnabled="{Binding RestrictedRights}">
+                            <MenuItem.Icon>
+                                <Image Source="/Resources/delete.png"
+                         Height="16"
+                         Width="16" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Open db Folder"
+                        Command="{Binding OpenFolder}">
+                            <MenuItem.Icon>
+                                <Image Source="/Telerik.Windows.Controls.RichTextBoxUI;component/Images/MSOffice/16/open.png"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Open last Backup Folder"
+                        Command="{Binding OpenLastBackupFolder}">
+                            <MenuItem.Icon>
+                                <Image Source="/Telerik.Windows.Controls.RichTextBoxUI;component/Images/MSOffice/16/open.png"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Command="{Binding CloneDataBase}"
+                        Header="Clone"
+                        IsEnabled="{Binding RestrictedRights}"
+                        HorizontalContentAlignment="Left">
+                            <MenuItem.Icon>
+                                <Image Source="/Resources/copy.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Command="{Binding RenameDatabase}"
+                        Header="Rename Database"
+                        IsEnabled="{Binding RestrictedRights}"
+                        HorizontalContentAlignment="Left">
+                        </MenuItem>
+                        <MenuItem Command="{Binding CutLogFile}"
+                        Header="Cut Log"
+                        IsEnabled="{Binding RestrictedRights}"
+                        HorizontalContentAlignment="Left">
+                        </MenuItem>
+                    </ContextMenu>
+                </ListBox.ContextMenu>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="{x:Type ListBoxItem}">
+                        <EventSetter Event="MouseEnter" Handler="__ListBoxItem_MouseEnter" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="/Resources/warning.png"
+                       Visibility="{Binding WarningVisible}"/>
+                            <OperationVisualization:OperationState eOperationState="{Binding OperationState}"
+                                       VerticalAlignment="Center" 
+                                       ToolTip="{Binding StateTooltip}"
+                                       Margin="10 0 10 0"/>
+                            <Label Content="{Binding DBName}"
+                                   Width="150" 
+                                   Margin="10 0 10 0"
+                                   ToolTip="{Binding DataBaseSizeString}" />
+                            <Button Content="Open Query"
+                             Command="{Binding DataContext.OpenQuery,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                             CommandParameter="{Binding}"
+                             Margin="0 0 10 0"/>
+                            <Button Content="{Binding HandleODBCState}"
+                             Command="{Binding DataContext.GenerateODBCEntry,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                             CommandParameter="{Binding}"
+                             Margin="0 0 10 0"/>
+                            <Button Content="{Binding HandleStatusText}"
+                             Command="{Binding DataContext.TakeSelectedOffline,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                             CommandParameter="{Binding}"
+                               IsEnabled="{Binding RestrictedRights}"
+                             Margin="0 0 10 0"/>
+                            <Button Content="Backup"
+                             Command="{Binding DataContext.BackupSelectedDataBase,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                             CommandParameter="{Binding}"
+                             Margin="0 0 10 0"/>
+                            <Button Content="{Binding RestoreBackupCaption}"
+                             Command="{Binding DataContext.RestoreBackup,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                             CommandParameter="{Binding}"
+                             IsEnabled="{Binding CanDBRestore}"
+                             Margin="0 0 10 0"/>
+                            <Button Content="Monitor DB Log Size"
+                               Background="{Binding TrackedFilesBrush}"
+                             Command="{Binding DataContext.StartMonitoring,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                             CommandParameter="{Binding}"
+                             Visibility="{Binding DataContext.FileMonitoringVisibility,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                             Margin="0 0 10 0"/>
+                            <Label Content="{Binding TrackedFileState}"
+                              Margin="0 0 10 0"
+                              Visibility="{Binding DataContext.FileMonitoringVisibility,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <Grid Grid.Row="2"
+            Grid.ColumnSpan="2"
+            VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Button HorizontalContentAlignment="Left"
+                       Margin="10 0 10 0" 
+                       Grid.Column="0"
+                       Command="{Binding TakeAllOffline}"
+                       Height="Auto">
+                    <Button.Content>
+                        <TextBlock>
+                            Take OFFLINE ALL Databases
+                            <LineBreak/>(Active Connections will be killed too)
+                        </TextBlock>
+                    </Button.Content>
+                </Button>
+                <Button HorizontalContentAlignment="Left"
+                       Margin="0 0 10 0"
+                       Content="Take ONLINE ALL Databases" 
+                       Grid.Column="1"     
+                       Command="{Binding TakeAllOnline}" />
+                <Button HorizontalContentAlignment="Left" 
+                       Margin="10 10 10 0"
+                       Content="Backup ALL Databases" 
+                       Grid.Column="0"
+                       Grid.Row="2"
+                       Command="{Binding BackupAll}"/>
+                <Button HorizontalContentAlignment="Left" 
+                       Margin="0 10 10 0"
+                       Content="Restore ALL Databases" 
+                       Grid.Column="1" 
+                       Grid.Row="2"
+                       Command="{Binding RestoreAll}"/>
+                <Button x:Name="btnDeleteUnusedFiles" HorizontalContentAlignment="Left" 
+                       Margin="10 10 10 0"
+                       Content="{Binding DeleteUnusedFilesCaption}"
+                       Grid.Column="0"
+                       Grid.Row="1"
+                       Command="{Binding DeleteUnusedFiles}"/>
+                <Button HorizontalContentAlignment="Left" 
+                       Content="Restore multiple *.bak"
+                       Margin="0 10 10 0"
+                       Grid.Column="1"
+                       Grid.Row="1"
+                       Command="{Binding RestoreMultipleBaks}"/>
+            </Grid>
+        </Grid>
+        <Grid x:Name="BottomGrid" 
+          Grid.Row="2"
+          HorizontalAlignment="Stretch">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="74" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="22" />
+            </Grid.RowDefinitions>
+            <!--<Image Grid.Column="0" 
+             Source="/Resources/**Bottom.png" 
+             HorizontalAlignment="Left" />
+            <Image Grid.Column="1"
+             Source="/Resources/**BottomPng" 
+             Stretch="Fill" />-->
+            <Label x:Name="tbInformations"
+             Grid.Column="2"
+             Content ="{Binding SystemInformation}"
+             HorizontalAlignment="Right" 
+             FontSize="10" />
+        </Grid>
+    </Grid>
+</Window>
