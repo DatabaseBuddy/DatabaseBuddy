@@ -1,16 +1,20 @@
 ﻿using ASquare.WindowsTaskScheduler;
+using ControlzEx.Theming;
 using DatabaseBuddy.Core;
 using DatabaseBuddy.Core.Attributes;
 using DatabaseBuddy.Core.DatabaseExtender;
 using DatabaseBuddy.Core.Extender;
 using DatabaseBuddy.Dialogs;
 using DatabaseBuddy.Entities;
+using MahApps.Metro.Controls;
+using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
 using Övervakning.Shared.Entities;
 using Övervakning.Shared.Enums;
 using Övervakning.Shared.Helper;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
@@ -30,8 +34,8 @@ namespace DatabaseBuddy.ViewModel
         private List<string> m_systemDataBases;
         private List<string> m_UnusedFiles;
         private string m_Server = "localhost";
-        private readonly string m_User; //TODO: TASK:  Replace via Login Dialog
-        private readonly string m_Password; //TODO: TASK: Replace via Login Dialog
+        private string m_UserName;
+        private string m_Password;
         private const string ODBC32BitRegPath = @"SOFTWARE\WOW6432Node\ODBC\ODBC.INI";
         private string m_MSSQLStudioPath;
         private DBConnection m_db;
@@ -40,6 +44,7 @@ namespace DatabaseBuddy.ViewModel
 
         private string m_TrackingMaxFileSizeInput;
         private DBStateEntry m_TrackingDBStateEntry;
+        private string m_DefaultDataPath;
 
         private bool m_ShowSystemDatabases;
         private bool m_FileTrackingEnabled;
@@ -51,6 +56,10 @@ namespace DatabaseBuddy.ViewModel
         private ListBox m_ListBoxDbs;
         private bool m_IsBusy;
         private bool m_MultiMode;
+        private bool m_SettingsOpen;
+        private bool m_IntegratedSecurity;
+        private Theme m_MahTheme;
+        private string m_SelectedTheme;
         #endregion
 
         #region [Icommands]
@@ -80,6 +89,9 @@ namespace DatabaseBuddy.ViewModel
         public ICommand RestoreAll { get; set; }
         public ICommand DeleteUnusedFiles { get; set; }
         public ICommand RestoreMultipleBaks { get; set; }
+        public ICommand ToggleSettings { get; set; }
+        public ICommand ChangeBaseTheme { get; set; }
+        public ICommand ChangeTheme { get; set; }
 
 
         #endregion
@@ -88,23 +100,65 @@ namespace DatabaseBuddy.ViewModel
         public MainWindowViewModel()
         {
             __InitializeCommands();
+            __GetDefaultDataPath();
             m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
             UnusedFiles = new List<string>();
-            __GetMSSQLStudioPath();
+            m_MSSQLStudioPath = GetRegistryValue(nameof(m_MSSQLStudioPath));
+            if(m_MSSQLStudioPath.IsNullOrEmpty())
+                __GetMSSQLStudioPath();
             m_ShowSystemDatabases = GetRegistryValue("ShowSystemDatabases").ToBooleanValue();
             m_FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
             m_ScheduleActivated = GetRegistryValue("EnabledSchedule").ToBooleanValue();
             ServerName = GetRegistryValue(nameof(ServerName));
+            UserName = GetRegistryValue(nameof(UserName));
+            Password = GetRegistryValue(nameof(Password));
+            __HandleTheming();
+            IntegratedSecurity = GetRegistryValue(nameof(IntegratedSecurity)).ToBooleanValue();
             __HandleFileTrackingNeeds();
             skipReload = false;
             Execute_Reload();
         }
+
         #endregion
 
         #region - properties -
         #region - public properties -
         [DependsUpon(nameof(ServerName))]
-        public string SystemInformation => $"{__GetVersion()} Server: {m_Server} User: {m_User}";
+        public string SystemInformation
+        {
+            get
+            {
+                if (!IntegratedSecurity)
+                    return $"{__GetVersion()} Server: {m_Server} User: {m_UserName}";
+                else
+                    return $"{__GetVersion()} Server: {m_Server} Integrated Security";
+            }
+        }
+
+        public bool BaseThemeToggled
+        {
+            get
+            {
+                if (m_MahTheme == null)
+                    return false;
+                return !m_MahTheme.BaseColorScheme.Equals("Light");
+            }
+            set
+            { }
+        }
+
+        public bool SettingsOpen
+        {
+            get
+            {
+                return m_SettingsOpen;
+            }
+            set
+            {
+                m_SettingsOpen = value;
+                OnPropertyChanged(nameof(SettingsOpen));
+            }
+        }
 
         public bool MultiMode
         {
@@ -116,6 +170,9 @@ namespace DatabaseBuddy.ViewModel
             {
                 m_MultiMode = value;
                 OnPropertyChanged(nameof(MultiMode));
+                OnPropertyChanged(nameof(ListBoxSelectionMode));
+                OnPropertyChanged(nameof(MultiModeToggleCaption));
+                OnPropertyChanged(nameof(SelectAllVisibility));
             }
         }
 
@@ -203,7 +260,7 @@ namespace DatabaseBuddy.ViewModel
                 {
                     if (m_db == null)
                     {
-                        m_db = new DBConnection(ServerName, "master", m_User, m_Password);
+                        m_db = new DBConnection(ServerName, "master", m_UserName, m_Password);
                         m_db.ConnectionFailed += __ResetInvalidConnection;
                     }
                     return m_db;
@@ -216,6 +273,30 @@ namespace DatabaseBuddy.ViewModel
             }
         }
 
+        public Visibility CredentialsVisibility
+        {
+            get
+            {
+                return IntegratedSecurity ? Visibility.Collapsed : Visibility.Visible;
+            }
+        }
+
+        public bool IntegratedSecurity
+        {
+            get
+            {
+                return m_IntegratedSecurity;
+            }
+            set
+            {
+                m_IntegratedSecurity = value;
+                OnPropertyChanged(nameof(IntegratedSecurity));
+                __WriteRegistryValue(nameof(IntegratedSecurity), value ? "1" : "0");
+                OnPropertyChanged(nameof(CredentialsVisibility));
+                OnPropertyChanged(nameof(SystemInformation));
+            }
+        }
+
         public string ServerName
         {
             get
@@ -224,10 +305,58 @@ namespace DatabaseBuddy.ViewModel
             }
             set
             {
-                var TrimmedValue = value?.Trim();
-                m_Server = TrimmedValue.IsNotNullOrEmpty() ? TrimmedValue : "localhost";
+                m_Server = value?.Trim() ?? "localhost";
                 OnPropertyChanged(nameof(ServerName));
                 OnPropertyChanged(nameof(SystemInformation));
+            }
+        }
+
+        public string UserName
+        {
+            get
+            {
+                return m_UserName;
+            }
+            set
+            {
+                m_UserName = value;
+                OnPropertyChanged(nameof(UserName));
+                OnPropertyChanged(nameof(SystemInformation));
+            }
+        }
+
+        public string Password
+        {
+            get
+            {
+                return m_Password;
+            }
+            set
+            {
+                m_Password = value;
+                OnPropertyChanged(nameof(Password));
+            }
+        }
+
+        public ObservableCollection<string> Themes
+        {
+            get
+            {
+                return __GetThemeCboItems();
+            }
+        }
+
+        public string SelectedTheme
+        {
+            get
+            {
+                return m_SelectedTheme;
+            }
+            set
+            {
+                m_SelectedTheme = value;
+                Execute_ChangeTheme();
+                OnPropertyChanged(nameof(SelectedTheme));
             }
         }
 
@@ -485,7 +614,6 @@ namespace DatabaseBuddy.ViewModel
             {
                 if (skipReload)
                     return;
-                //DBEntries.Clear();
                 Db.ExecuteScalar("USE [master] SELECT TOP (1) xserver_name FROM [master].[dbo].[spt_fallback_db]");
                 __ReloadDBs();
                 __GetUnusedDataBaseFiles();
@@ -501,14 +629,15 @@ namespace DatabaseBuddy.ViewModel
             catch (Exception ex)
             {
                 __ResetInvalidConnection(this, new EventArgs());
-                //_ = MessageBox.Show(ex.ToString()/*"Datenbankverbindung fehlgeschlagen"*/, "Verbindung nicht möglich");
             }
         }
 
         private void __ResetInvalidConnection(object sender, EventArgs e)
         {
+            __ThrowMessage("Connection Failed", sender.ToString());
             skipReload = true;
             ServerName = GetRegistryValue(nameof(ServerName));
+            Password = string.Empty;
             m_db = null;
             Execute_Reload();
         }
@@ -751,11 +880,24 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region [CanExecute_Reconnect]
+        public bool CanExecute_Reconnect()
+        {
+            return __CanExecute_Common() && ServerName.IsNotNullOrEmpty() && ((UserName.IsNotNullOrEmpty() && Password.IsNotNullOrEmpty()) || IntegratedSecurity);
+        }
+        #endregion
+
         #region [Execute_Reconnect]
         public void Execute_Reconnect(object obj = null)
         {
             try
             {
+                if (ServerName.IsNullOrEmpty())
+                    ServerName = "localhost";
+                if (UserName.IsNotNullOrEmpty())
+                    __WriteRegistryValue(nameof(UserName), UserName);
+                if (Password.IsNotNullOrEmpty())
+                    __WriteRegistryValue(nameof(Password), Password);
                 m_db = null;
                 skipReload = false;
                 Execute_Reload();
@@ -838,9 +980,99 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region [Execute_ToggleSettings]
+        public void Execute_ToggleSettings(object obj = null)
+        {
+            SettingsOpen = !SettingsOpen;
+        }
+        #endregion
+
+        #region [Execute_ChangeBaseTheme]
+        public void Execute_ChangeBaseTheme(object obj = null)
+        {
+            var CurrentTheme = __GetCurrentTheme();
+            ThemeManager.Current.ChangeThemeBaseColor(Application.Current, ThemeManager.Current.GetInverseTheme(CurrentTheme).BaseColorScheme);
+            CurrentTheme = __GetCurrentTheme();
+            __WriteRegistryValue(nameof(m_MahTheme.BaseColorScheme), CurrentTheme.BaseColorScheme);
+            OnPropertyChanged(nameof(BaseThemeToggled));
+        }
+        #endregion
+
+        #region [Execute_ChangeTheme]
+        public void Execute_ChangeTheme(object obj = null)
+        {
+            if (SelectedTheme.IsNullOrEmpty())
+                return;
+            ThemeManager.Current.ChangeThemeColorScheme(Application.Current, SelectedTheme);
+            var CurrentTheme = __GetCurrentTheme();
+            __WriteRegistryValue(nameof(m_MahTheme.ColorScheme), CurrentTheme.ColorScheme);
+            OnPropertyChanged(nameof(SelectedTheme));
+        }
+        #endregion
+
+        #region [GetRegistryValue]
+        public static string GetRegistryValue(string key)
+        {
+            try
+            {
+                var BaseKey = Registry.CurrentUser.OpenSubKey("Software", true);
+                var Key = BaseKey.OpenSubKey(nameof(DatabaseBuddy), true);
+                if (Key == null)
+                    Key = BaseKey.CreateSubKey(nameof(DatabaseBuddy), true);
+
+                return Key.GetValue(key).ToStringValue();
+            }
+            catch (Exception ex)
+            {
+                return string.Empty;
+            }
+        }
+        #endregion
+
         #endregion
 
         #region - private methods -
+
+        #region [__ThrowMessage]
+        private void __ThrowMessage(string Title, string Message)
+        {
+            ((MetroWindow)Application.Current.MainWindow).ShowMessageAsync(Title, Message);
+        }
+        #endregion
+
+        #region [__HandleTheming]
+        private void __HandleTheming()
+        {
+            var BaseColor = GetRegistryValue(nameof(m_MahTheme.BaseColorScheme));
+            var ColorScheme = GetRegistryValue(nameof(m_MahTheme.ColorScheme));
+            var CurrentTheme = __GetCurrentTheme();
+            if (BaseColor.IsNullOrEmpty() || ColorScheme.IsNullOrEmpty())
+            {
+                __WriteRegistryValue(nameof(m_MahTheme.BaseColorScheme), CurrentTheme.BaseColorScheme);
+                __WriteRegistryValue(nameof(m_MahTheme.ColorScheme), CurrentTheme.ColorScheme);
+                SelectedTheme = ColorScheme;
+            }
+            else
+            {
+                ThemeManager.Current.ChangeTheme(Application.Current, BaseColor, ColorScheme);
+                SelectedTheme = ColorScheme;
+                __GetCurrentTheme();
+                OnPropertyChanged(nameof(BaseThemeToggled));
+                OnPropertyChanged(nameof(SelectedTheme));
+            }
+        }
+        #endregion
+
+        #region [__GetCurrentTheme]
+        private Theme __GetCurrentTheme()
+        {
+            var CurrentThemes = new List<Theme>();
+            Application.Current.Resources.MergedDictionaries.ToList().ForEach(x => CurrentThemes.Add(ThemeManager.Current.GetTheme(x)));
+            var CurrentTheme = CurrentThemes.FirstOrDefault(x => x != null);
+            m_MahTheme = CurrentTheme;
+            return CurrentTheme ?? new Theme(default);
+        }
+        #endregion
 
         #region [__GetODBCEntries]
         private string[] __GetODBCEntries() => Registry.LocalMachine.OpenSubKey(ODBC32BitRegPath).GetSubKeyNames();
@@ -878,7 +1110,7 @@ namespace DatabaseBuddy.ViewModel
                 var SubKey = Key.CreateSubKey(m_DNSName);
                 SubKey.SetValue("Database", DBEntry.DBName);
                 SubKey.SetValue("Driver", @"C:\WINDOWS\system32\SQLSRV32.dll");
-                SubKey.SetValue("LastUser", m_User);
+                SubKey.SetValue("LastUser", m_UserName);
                 SubKey.SetValue("Server", ServerName);
             }
             Execute_Reload();
@@ -973,25 +1205,6 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
-        #region [GetRegistryValue]
-        public static string GetRegistryValue(string key)
-        {
-            try
-            {
-                var BaseKey = Registry.CurrentUser.OpenSubKey("Software", true);
-                var Key = BaseKey.OpenSubKey(nameof(DatabaseBuddy), true);
-                if (Key == null)
-                    Key = BaseKey.CreateSubKey(nameof(DatabaseBuddy), true);
-
-                return Key.GetValue(key).ToStringValue();
-            }
-            catch (Exception ex)
-            {
-                return string.Empty;
-            }
-        }
-        #endregion
-
         #region [__WriteRegistryValue]
         private static void __WriteRegistryValue(string key, string value)
         {
@@ -1015,11 +1228,11 @@ namespace DatabaseBuddy.ViewModel
             {
                 ssms.StartInfo.FileName = m_MSSQLStudioPath;
                 ssms.StartInfo.Arguments =
-                  $"-nosplash " +
                   $" -S {ServerName} " +
                   $" -d {DataBaseName}" +
-                  $" -U {m_User}" +
-                  $" -P {m_Password}";
+                  (!IntegratedSecurity && m_UserName.IsNotNullOrEmpty() && m_Password.IsNotNullOrEmpty() ?
+                  $" -U {m_UserName}" : " -E") +
+                  " -nosplash";
                 ssms.Start();
             }
         }
@@ -1031,17 +1244,24 @@ namespace DatabaseBuddy.ViewModel
             try
             {
                 var ExeName = "Ssms.exe";
-                foreach (string folder in Environment.GetEnvironmentVariable("path").Split(';'))
+                var Variables = Environment.GetEnvironmentVariable("path").Split(';').ToList();
+                Variables.Add(@"C:\Program Files (x86)");
+                foreach (string folder in Variables)
                 {
-                    if (File.Exists(folder + ExeName))
+                    try
                     {
-                        m_MSSQLStudioPath = folder + ExeName;
-                        break;
+                        var FilesInDirectory = Directory.GetFiles(folder, "*.exe", SearchOption.AllDirectories);
+                        var LocatedExe = FilesInDirectory.FirstOrDefault(x => x.EndsWith(ExeName, StringComparison.InvariantCultureIgnoreCase));
+                        if (LocatedExe.IsNotNullOrEmpty())
+                        {
+                            m_MSSQLStudioPath = LocatedExe;
+                            __WriteRegistryValue(nameof(m_MSSQLStudioPath), m_MSSQLStudioPath);
+                            break;
+                        }
                     }
-                    else if (File.Exists(folder + "\\" + ExeName))
+                    catch (Exception ex)
                     {
-                        m_MSSQLStudioPath = folder + "\\" + ExeName;
-                        break;
+
                     }
                 }
             }
@@ -1640,6 +1860,29 @@ CREATE DATABASE [{Entry.CloneName}]
         }
         #endregion
 
+        #region [__GetDefaultDataPath]
+        private void __GetDefaultDataPath()
+        {
+            using (var Reader = Db.GetDataReader(@"SELECT SERVERPROPERTY('InstanceDefaultDataPath') AS InstanceDefaultDataPath"))
+            {
+                if (Reader.HasRows)
+                {
+                    while (Reader.Read())
+                        m_DefaultDataPath = Reader["InstanceDefaultDataPath"].ToStringValue();
+                    Reader.Close();
+                    Db.CloseDataReader();
+                }
+            }
+        }
+        #endregion
+
+        #region [__GetThemeCboItems]
+        private ObservableCollection<string> __GetThemeCboItems()
+        {
+            return new ObservableCollection<string>(ThemeManager.Current.ColorSchemes);
+        }
+        #endregion
+
         #region [__InitializeCommands]
         private void __InitializeCommands()
         {
@@ -1669,6 +1912,8 @@ CREATE DATABASE [{Entry.CloneName}]
             RestoreAll = new DelegateCommand<object>(Execute_RestoreAll);
             DeleteUnusedFiles = new DelegateCommand<object>(Execute_DeleteUnusedFiles);
             RestoreMultipleBaks = new DelegateCommand<object>(Execute_RestoreMultipleBaks);
+            ToggleSettings = new DelegateCommand<object>(Execute_ToggleSettings);
+            ChangeBaseTheme = new DelegateCommand<object>(Execute_ChangeBaseTheme);
         }
         #endregion
 

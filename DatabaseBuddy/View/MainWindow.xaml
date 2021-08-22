@@ -60,26 +60,24 @@
                         VerticalAlignment="Center"
                         Margin="0 0 10 0"/>
                 <Button x:Name="btnReload"
-                         Height="22"
+                        Height="22"
+                        Content="Reload"
                          Command="{Binding Reload}"
-                         Margin="0 0 10 0"
-                        Style="{DynamicResource MahApps.Styles.Button.Circle}">
-
+                         Margin="0 0 10 0"/>
                 <!--<Image Source="/Resources/refresh.png" Height="16"
                    Width="16"
                    VerticalAlignment="Center"/>-->
-                    <TextBlock Text="Reload" />
-                </Button>
                 <Button HorizontalContentAlignment="Left"
                          Height="22"
                          Content="New Database"
                          Command="{Binding CreateNewDatabase}"
                          Margin="0 0 10 0"/>
-                <Button HorizontalContentAlignment="Left"
-                         Height="22"
-                         Content="Include System databases"
-                         Command="{Binding ShowSystemDatabases}"
-                         Margin="0 0 10 0"/>
+                <mah:ToggleSwitch HorizontalContentAlignment="Left"
+                                  OffContent="Include System databases"
+                                  OnContent="Hide System DataBases"
+                                  Command="{Binding ShowSystemDatabases}"
+                                  Margin="0 0 10 0"
+                                  VerticalAlignment="Top"/>
                 <Button HorizontalContentAlignment="Left"
                          Height="22"
                          Content="{Binding MultiModeToggleCaption}"
@@ -96,14 +94,6 @@
                          Content="Filesize Monitoring"
                          Command="{Binding SwitchTracking}"
                          Margin="0 0 10 0"/>
-                <Button Height="22"
-                         Content="Reconnect"
-                         Command="{Binding Reconnect}"
-                         Margin="0 0 10 0"/>
-                <TextBox Height="22"
-                        Text="{Binding ServerName, Mode=TwoWay}"
-                        MinWidth="50"
-                        Margin="0 0 10 0"/>
                 <StackPanel Orientation="Horizontal"
                     Margin="0 0 10 0"
                     Visibility="{Binding IsAdmin}">
@@ -115,6 +105,8 @@
                             VerticalAlignment="Center"
                             Margin="5 0 0 0"/>
                 </StackPanel>
+                <mah:ToggleSwitch Content="Settings"
+                                  Command="{Binding ToggleSettings}"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
                       Grid.Row="1" 
@@ -314,4 +306,120 @@
              FontSize="10" />
         </Grid>
     </Grid>
+    <mah:MetroWindow.Flyouts>
+        <mah:FlyoutsControl>
+            <mah:Flyout x:Name="Settings" 
+                        Header="Settings"
+                        Position="Right"
+                        Width="250"
+                        IsOpen="{Binding SettingsOpen}"
+                        CloseButtonVisibility="Collapsed">
+                <TabControl>
+                    <TabItem Header="Connection">
+                        <Grid VerticalAlignment="Top">
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1*" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Height="22"
+                                        Content="Reconnect"
+                                        Command="{Binding Reconnect}"
+                                        Margin="0 0 10 0"
+                                    Grid.Row="0"
+                                    Grid.Column="0"/>
+                            <TextBox Height="22"
+                                     mah:TextBoxHelper.ClearTextButton="True"
+                                     mah:TextBoxHelper.AutoWatermark="True"
+                                     mah:TextBoxHelper.Watermark="Servername"
+                                     Text="{Binding ServerName, Mode=TwoWay}"
+                                     MinWidth="50"
+                                     Margin="0 0 10 0"
+                                     Grid.Row="0"
+                                     Grid.Column="1"/>
+                            <Label Content="IntegratedSecurity"
+                                   Grid.Row="1"
+                                   Grid.Column="0"/>
+                            <CheckBox Grid.Row="1"
+                                      Grid.Column="1"
+                                      IsChecked="{Binding IntegratedSecurity, Mode=TwoWay}"/>
+
+                            <Label Content="Username"
+                                   Grid.Row="2"
+                                   Grid.Column="0" 
+                                   Visibility="{Binding CredentialsVisibility}"/>
+                            <TextBox Height="22"
+                                     mah:TextBoxHelper.ClearTextButton="True"
+                                     mah:TextBoxHelper.AutoWatermark="True"
+                                     mah:TextBoxHelper.Watermark="Username"
+                                     Text="{Binding UserName, Mode=TwoWay}"
+                                     MinWidth="50"
+                                     Margin="0 0 10 0"
+                                     Grid.Row="2"
+                                     Grid.Column="1"
+                                     Visibility="{Binding CredentialsVisibility}"/>
+
+                            <Label Content="Password"
+                                   Grid.Row="3"
+                                   Grid.Column="0" 
+                                   Visibility="{Binding CredentialsVisibility}"/>
+                            <TextBox Height="22"
+                                     Text="{Binding Password, Mode=TwoWay}"
+                                     MinWidth="50"
+                                     Margin="0 0 10 0"
+                                     Grid.Row="3"
+                                     Grid.Column="1"
+                                     Visibility="{Binding CredentialsVisibility}"/>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="General">
+                        <Grid VerticalAlignment="Top">
+                            <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition />
+                                <RowDefinition />
+                            </Grid.RowDefinitions>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Visual">
+                        <Grid VerticalAlignment="Top">
+                            <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition />
+                                <RowDefinition />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1*"/>
+                                <ColumnDefinition Width="1*"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Content="Basetheme"
+                                   Grid.Row="0"
+                                   Grid.Column="0"/>
+                            <mah:ToggleSwitch OffContent="Light"
+                                              OnContent="Dark"
+                                              Grid.Row="0"
+                                              Grid.Column="1"
+                                              Command="{Binding ChangeBaseTheme}"
+                                              CommandParameter="{Binding}"
+                                              IsOn="{Binding BaseThemeToggled, Mode=TwoWay}"/>
+                            <Label Content="Theme"
+                                   Grid.Row="1"
+                                   Grid.Column="0"/>
+                            <ComboBox Grid.Row="1"
+                                      Grid.Column="1"
+                                      ItemsSource="{Binding Themes}"
+                                      SelectedItem="{Binding SelectedTheme}"/>
+
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </mah:Flyout>
+        </mah:FlyoutsControl>
+    </mah:MetroWindow.Flyouts>
 </mah:MetroWindow>
