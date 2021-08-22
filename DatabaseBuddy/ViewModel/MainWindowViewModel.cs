@@ -58,8 +58,8 @@ namespace DatabaseBuddy.ViewModel
         private bool m_MultiMode;
         private bool m_SettingsOpen;
         private bool m_IntegratedSecurity;
-        private Theme m_MahTheme;
-        private string m_SelectedTheme;
+        private string m_BaseTheme = ThemeManager.BaseColorLight;
+        private string m_SelectedTheme = "Blue";
         #endregion
 
         #region [Icommands]
@@ -99,12 +99,13 @@ namespace DatabaseBuddy.ViewModel
         #region [Ctor]
         public MainWindowViewModel()
         {
+            ThemeManager.Current.ChangeTheme(Application.Current, "Light.Blue");
             __InitializeCommands();
             __GetDefaultDataPath();
             m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
             UnusedFiles = new List<string>();
             m_MSSQLStudioPath = GetRegistryValue(nameof(m_MSSQLStudioPath));
-            if(m_MSSQLStudioPath.IsNullOrEmpty())
+            if (m_MSSQLStudioPath.IsNullOrEmpty())
                 __GetMSSQLStudioPath();
             m_ShowSystemDatabases = GetRegistryValue("ShowSystemDatabases").ToBooleanValue();
             m_FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
@@ -139,12 +140,18 @@ namespace DatabaseBuddy.ViewModel
         {
             get
             {
-                if (m_MahTheme == null)
+                if (m_BaseTheme.IsNullOrEmpty())
                     return false;
-                return !m_MahTheme.BaseColorScheme.Equals("Light");
+                return !m_BaseTheme.Equals(ThemeManager.BaseColorLight);
             }
-            set
-            { }
+        }
+
+        public bool SystemDataBasesToggled
+        {
+            get
+            {
+                return m_ShowSystemDatabases;
+            }
         }
 
         public bool SettingsOpen
@@ -186,6 +193,7 @@ namespace DatabaseBuddy.ViewModel
                 if (value != null)
                     m_UnusedFiles = value;
                 OnPropertyChanged(nameof(UnusedFiles));
+                OnPropertyChanged(nameof(DeleteUnusedFilesCaption));
             }
         }
 
@@ -260,16 +268,18 @@ namespace DatabaseBuddy.ViewModel
                 {
                     if (m_db == null)
                     {
-                        m_db = new DBConnection(ServerName, "master", m_UserName, m_Password);
+                        if (IntegratedSecurity)
+                            m_db = new DBConnection(ServerName, "master", true);
+                        else
+                            m_db = new DBConnection(ServerName, "master", m_UserName, m_Password);
                         m_db.ConnectionFailed += __ResetInvalidConnection;
                     }
-                    return m_db;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-
-                    throw;
+                    __ThrowMessage($"{nameof(Db)} failed!", ex.ToString());
                 }
+                return m_db;
             }
         }
 
@@ -285,6 +295,8 @@ namespace DatabaseBuddy.ViewModel
         {
             get
             {
+                if (m_UserName.IsNullOrEmpty() || m_Password.IsNullOrEmpty())
+                    return true;
                 return m_IntegratedSecurity;
             }
             set
@@ -354,6 +366,8 @@ namespace DatabaseBuddy.ViewModel
             }
             set
             {
+                if (value.IsNullOrEmpty())
+                    return;
                 m_SelectedTheme = value;
                 Execute_ChangeTheme();
                 OnPropertyChanged(nameof(SelectedTheme));
@@ -396,7 +410,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
-
+                __ThrowMessage($"{nameof(Execute_TakeSelectedOffline)} failed!", ex.ToString());
             }
             finally
             {
@@ -415,6 +429,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_OpenQuery)} failed!", ex.ToString());
             }
 
         }
@@ -439,6 +454,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_GenerateODBCEntry)} failed!", ex.ToString());
             }
 
         }
@@ -459,6 +475,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_TakeAllOffline)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -472,6 +489,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_TakeAllOnline)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -494,6 +512,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_DeleteSelectedDataBase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -509,6 +528,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_GotFocus)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -523,6 +543,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_GotLbFocus)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -542,6 +563,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_BackupAll)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -564,6 +586,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RestoreBackup)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -584,6 +607,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_BackupSelectedDataBase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -603,6 +627,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RestoreAll)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -628,6 +653,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_Reload)} failed!", ex.ToString());
                 __ResetInvalidConnection(this, new EventArgs());
             }
         }
@@ -635,7 +661,8 @@ namespace DatabaseBuddy.ViewModel
         private void __ResetInvalidConnection(object sender, EventArgs e)
         {
             __ThrowMessage("Connection Failed", sender.ToString());
-            skipReload = true;
+            if (sender is SqlException SqlEx && SqlEx.Number != 103)
+                skipReload = true;
             ServerName = GetRegistryValue(nameof(ServerName));
             Password = string.Empty;
             m_db = null;
@@ -663,6 +690,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_DeleteUnusedFiles)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -683,6 +711,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_OpenFolder)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -729,6 +758,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_OpenLastBackupFolder)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -784,6 +814,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RestoreMultipleBaks)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -816,6 +847,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_CloneDataBase)} failed!", ex.ToString());
             }
         }
 
@@ -830,6 +862,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_SwitchMultiMode)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -845,6 +878,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_CreateNewDatabase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -860,6 +894,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_ShowSystemDatabases)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -876,6 +911,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_SwitchTracking)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -904,6 +940,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_Reconnect)} failed!", ex.ToString());
                 __ResetInvalidConnection(this, new EventArgs());
             }
         }
@@ -932,6 +969,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_StartMonitoring)} failed!", ex.ToString());
             }
         }
 
@@ -946,6 +984,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_SelectAll)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -961,6 +1000,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_CutLogFile)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -976,6 +1016,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RenameDatabase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -990,10 +1031,9 @@ namespace DatabaseBuddy.ViewModel
         #region [Execute_ChangeBaseTheme]
         public void Execute_ChangeBaseTheme(object obj = null)
         {
-            var CurrentTheme = __GetCurrentTheme();
-            ThemeManager.Current.ChangeThemeBaseColor(Application.Current, ThemeManager.Current.GetInverseTheme(CurrentTheme).BaseColorScheme);
-            CurrentTheme = __GetCurrentTheme();
-            __WriteRegistryValue(nameof(m_MahTheme.BaseColorScheme), CurrentTheme.BaseColorScheme);
+            ThemeManager.Current.ChangeTheme(Application.Current, ThemeManager.Current.GetInverseTheme(ThemeManager.Current.GetTheme($"{m_BaseTheme}.{SelectedTheme}")));
+            m_BaseTheme = m_BaseTheme.Equals(ThemeManager.BaseColorLight) ? ThemeManager.BaseColorDark : ThemeManager.BaseColorLight;
+            __WriteRegistryValue(nameof(m_BaseTheme), m_BaseTheme);
             OnPropertyChanged(nameof(BaseThemeToggled));
         }
         #endregion
@@ -1004,8 +1044,7 @@ namespace DatabaseBuddy.ViewModel
             if (SelectedTheme.IsNullOrEmpty())
                 return;
             ThemeManager.Current.ChangeThemeColorScheme(Application.Current, SelectedTheme);
-            var CurrentTheme = __GetCurrentTheme();
-            __WriteRegistryValue(nameof(m_MahTheme.ColorScheme), CurrentTheme.ColorScheme);
+            __WriteRegistryValue(nameof(SelectedTheme), SelectedTheme);
             OnPropertyChanged(nameof(SelectedTheme));
         }
         #endregion
@@ -1022,7 +1061,7 @@ namespace DatabaseBuddy.ViewModel
 
                 return Key.GetValue(key).ToStringValue();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return string.Empty;
             }
@@ -1037,40 +1076,26 @@ namespace DatabaseBuddy.ViewModel
         private void __ThrowMessage(string Title, string Message)
         {
             ((MetroWindow)Application.Current.MainWindow).ShowMessageAsync(Title, Message);
+            skipReload = false;
         }
         #endregion
 
         #region [__HandleTheming]
         private void __HandleTheming()
         {
-            var BaseColor = GetRegistryValue(nameof(m_MahTheme.BaseColorScheme));
-            var ColorScheme = GetRegistryValue(nameof(m_MahTheme.ColorScheme));
-            var CurrentTheme = __GetCurrentTheme();
-            if (BaseColor.IsNullOrEmpty() || ColorScheme.IsNullOrEmpty())
+            m_BaseTheme = GetRegistryValue(nameof(m_BaseTheme));
+            SelectedTheme = GetRegistryValue(nameof(SelectedTheme));
+            if (m_BaseTheme.IsNullOrEmpty() || SelectedTheme.IsNullOrEmpty())
             {
-                __WriteRegistryValue(nameof(m_MahTheme.BaseColorScheme), CurrentTheme.BaseColorScheme);
-                __WriteRegistryValue(nameof(m_MahTheme.ColorScheme), CurrentTheme.ColorScheme);
-                SelectedTheme = ColorScheme;
+                __WriteRegistryValue(nameof(m_BaseTheme), ThemeManager.BaseColorLight);
+                __WriteRegistryValue(nameof(SelectedTheme), "Blue");
             }
             else
             {
-                ThemeManager.Current.ChangeTheme(Application.Current, BaseColor, ColorScheme);
-                SelectedTheme = ColorScheme;
-                __GetCurrentTheme();
+                ThemeManager.Current.ChangeTheme(Application.Current, m_BaseTheme, SelectedTheme);
                 OnPropertyChanged(nameof(BaseThemeToggled));
                 OnPropertyChanged(nameof(SelectedTheme));
             }
-        }
-        #endregion
-
-        #region [__GetCurrentTheme]
-        private Theme __GetCurrentTheme()
-        {
-            var CurrentThemes = new List<Theme>();
-            Application.Current.Resources.MergedDictionaries.ToList().ForEach(x => CurrentThemes.Add(ThemeManager.Current.GetTheme(x)));
-            var CurrentTheme = CurrentThemes.FirstOrDefault(x => x != null);
-            m_MahTheme = CurrentTheme;
-            return CurrentTheme ?? new Theme(default);
         }
         #endregion
 
@@ -1259,14 +1284,15 @@ namespace DatabaseBuddy.ViewModel
                             break;
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-
+                        continue;
                     }
                 }
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__GetMSSQLStudioPath)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -1347,14 +1373,11 @@ namespace DatabaseBuddy.ViewModel
                     __WriteRegistryValue(nameof(ServerName), ServerName);
                     return tmpDatabaseEntries;
                 }
-                else
-                {
-
-                }
                 return new List<DBStateEntry>();
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__LoadDataBases)} failed!", ex.ToString());
                 return new List<DBStateEntry>();
             }
 
@@ -1419,7 +1442,6 @@ namespace DatabaseBuddy.ViewModel
                         Reader.Close();
                         Db.CloseDataReader();
                     }
-
                     var Cmd = "USE[master] \n";
                     var builder = new System.Text.StringBuilder();
                     builder.Append(Cmd);
@@ -1433,9 +1455,9 @@ namespace DatabaseBuddy.ViewModel
                     {
                         Db.ExecuteNonQuery(Cmd);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        //Default Exception Process to kill the Connections is also a Process and cannot kill itself
+                        __ThrowMessage($"{nameof(__KillConnections)} failed!", ex.ToString());
                         continue;
                     }
                 }
@@ -1579,8 +1601,9 @@ namespace DatabaseBuddy.ViewModel
                 Execute_Reload();
                 MessageBox.Show($"Erfolgreich wiederhergestellt", "Wiederherstellung erfolgreich", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__RestoreBackup)} failed!", ex.ToString());
                 __ActivateConnections(DataBaseEntries);
             }
         }
@@ -1645,9 +1668,9 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
                 UnusedFiles = UnusedFiles.Distinct().ToList();
                 OnPropertyChanged(nameof(UnusedFiles));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                __ThrowMessage($"{nameof(__GetUnusedDataBaseFiles)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -1657,12 +1680,12 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
         {
             if (Directory.Exists(folderPath))
             {
-                var startInfo = new System.Diagnostics.ProcessStartInfo
+                var startInfo = new ProcessStartInfo
                 {
                     Arguments = folderPath,
                     FileName = "explorer.exe"
                 };
-                _ = System.Diagnostics.Process.Start(startInfo);
+                _ = Process.Start(startInfo);
             }
             else
             {
@@ -1766,6 +1789,7 @@ CREATE DATABASE [{Entry.CloneName}]
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__RunCloneDataBase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -1840,6 +1864,7 @@ CREATE DATABASE [{Entry.CloneName}]
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__HandleFileTrackingNeeds)} failed!", ex.ToString());
             }
         }
         #endregion

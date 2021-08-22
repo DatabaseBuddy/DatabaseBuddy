@@ -5,7 +5,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
         xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
-        xmlns:OperationVisualization="clr-namespace:DatabaseBuddy.Core.OperationVisualization;assembly=DatabaseBuddy.Core"
         mc:Ignorable="d"
         Title="DatabaseBuddy" Height="450"
         Width="600"
@@ -76,6 +75,7 @@
                                   OffContent="Include System databases"
                                   OnContent="Hide System DataBases"
                                   Command="{Binding ShowSystemDatabases}"
+                                  IsOn="{Binding SystemDataBasesToggled, Mode=OneWay}"
                                   Margin="0 0 10 0"
                                   VerticalAlignment="Top"/>
                 <Button HorizontalContentAlignment="Left"
@@ -177,14 +177,21 @@
                         <StackPanel Orientation="Horizontal">
                             <Image Source="/Resources/warning.png"
                        Visibility="{Binding WarningVisible}"/>
-                            <OperationVisualization:OperationState eOperationState="{Binding OperationState}"
-                                       VerticalAlignment="Center" 
-                                       ToolTip="{Binding StateTooltip}"
-                                       Margin="10 0 10 0"/>
-                            <Label Content="{Binding DBName}"
-                                   Width="150" 
-                                   Margin="10 0 10 0"
-                                   ToolTip="{Binding DataBaseSizeString}" />
+                            <mah:ToggleSwitch Margin="10 0 10 0"
+                                              OnContent="Active"
+                                              OffContent="Inactive"
+                                              Command="{Binding DataContext.TakeSelectedOffline,
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                                              CommandParameter="{Binding}"
+                                              IsEnabled="{Binding RestrictedRights}"
+                                              IsOn="{Binding IsOnlineToggled, Mode=OneWay}"/>
+                            <TextBlock Text="{Binding DBName}"
+                                       FontSize="16"
+                                       FontWeight="DemiBold"
+                                       Width="150" 
+                                       Margin="10 0 10 0"
+                                       VerticalAlignment="Center"
+                                       ToolTip="{Binding DataBaseSizeString}" />
                             <Button Content="Open Query"
                              Command="{Binding DataContext.OpenQuery,
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
@@ -407,7 +414,7 @@
                                               Grid.Column="1"
                                               Command="{Binding ChangeBaseTheme}"
                                               CommandParameter="{Binding}"
-                                              IsOn="{Binding BaseThemeToggled, Mode=TwoWay}"/>
+                                              IsOn="{Binding BaseThemeToggled, Mode=OneWay}"/>
                             <Label Content="Theme"
                                    Grid.Row="1"
                                    Grid.Column="0"/>

@@ -18,15 +18,20 @@ namespace DatabaseBuddy.Core.DatabaseExtender
         public event EventHandler ConnectionFailed;
 
         public DBConnection(string ServerName, string DatabaseName,
-            string Username, string Password, bool IntegratedSecurity = false)
+            string Username, string Password)
         {
             m_ServerName = ServerName;
             m_DatabaseName = DatabaseName;
             m_Username = Username;
             m_Password = Password;
+            __GetConnection();
+        }
+
+        public DBConnection(string ServerName, string DatabaseName, bool IntegratedSecurity)
+        {
+            m_ServerName = ServerName;
+            m_DatabaseName = DatabaseName;
             m_IntegratedSecurity = IntegratedSecurity;
-            if (m_Username.IsNullOrEmpty() || m_Password.IsNullOrEmpty())
-                m_IntegratedSecurity = true;
             __GetConnection();
         }
         #region GetConnection
