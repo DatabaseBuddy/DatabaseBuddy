@@ -25,7 +25,6 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-
 namespace DatabaseBuddy.ViewModel
 {
     public class MainWindowViewModel : ViewModelBase
@@ -50,7 +49,7 @@ namespace DatabaseBuddy.ViewModel
         private bool m_FileTrackingEnabled;
         private bool m_ScheduleActivated;
         private List<Entry> m_TrackedFiles;
-        bool skipReload;
+        private bool skipReload;
         private DBStateEntry m_SelectedDB;
         private List<DBStateEntry> m_DBEntries;
         private ListBox m_ListBoxDbs;
@@ -58,11 +57,32 @@ namespace DatabaseBuddy.ViewModel
         private bool m_MultiMode;
         private bool m_SettingsOpen;
         private bool m_IntegratedSecurity;
-        private string m_BaseTheme = ThemeManager.BaseColorLight;
+        private string m_BaseTheme = "Light";
         private string m_SelectedTheme = "Blue";
         #endregion
 
-        #region [Icommands]
+
+        #region [Ctor]
+        public MainWindowViewModel()
+        {
+            ThemeManager.Current.ChangeTheme(Application.Current, "Light.Blue");
+            __GetRegistryValues();
+            __InitializeCommands();
+            __GetDefaultDataPath();
+            m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
+            UnusedFiles = new List<string>();
+            if (m_MSSQLStudioPath.IsNullOrEmpty())
+                __GetMSSQLStudioPath();
+
+            __HandleTheming();
+            __HandleFileTrackingNeeds();
+            skipReload = false;
+            Execute_Reload();
+        }
+
+        #endregion
+
+        #region [Commands]
         public ICommand Reload { get; set; }
         public ICommand CreateNewDatabase { get; set; }
         public ICommand ShowSystemDatabases { get; set; }
@@ -96,33 +116,8 @@ namespace DatabaseBuddy.ViewModel
 
         #endregion
 
-        #region [Ctor]
-        public MainWindowViewModel()
-        {
-            ThemeManager.Current.ChangeTheme(Application.Current, "Light.Blue");
-            __InitializeCommands();
-            __GetDefaultDataPath();
-            m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
-            UnusedFiles = new List<string>();
-            m_MSSQLStudioPath = GetRegistryValue(nameof(m_MSSQLStudioPath));
-            if (m_MSSQLStudioPath.IsNullOrEmpty())
-                __GetMSSQLStudioPath();
-            m_ShowSystemDatabases = GetRegistryValue("ShowSystemDatabases").ToBooleanValue();
-            m_FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
-            m_ScheduleActivated = GetRegistryValue("EnabledSchedule").ToBooleanValue();
-            ServerName = GetRegistryValue(nameof(ServerName));
-            UserName = GetRegistryValue(nameof(UserName));
-            Password = GetRegistryValue(nameof(Password));
-            __HandleTheming();
-            IntegratedSecurity = GetRegistryValue(nameof(IntegratedSecurity)).ToBooleanValue();
-            __HandleFileTrackingNeeds();
-            skipReload = false;
-            Execute_Reload();
-        }
-
-        #endregion
-
         #region - properties -
+
         #region - public properties -
         [DependsUpon(nameof(ServerName))]
         public string SystemInformation
@@ -268,6 +263,8 @@ namespace DatabaseBuddy.ViewModel
                 {
                     if (m_db == null)
                     {
+                        if (UserName.IsNullOrEmpty() || m_Password.IsNullOrEmpty())
+                            IntegratedSecurity = true;
                         if (IntegratedSecurity)
                             m_db = new DBConnection(ServerName, "master", true);
                         else
@@ -295,8 +292,6 @@ namespace DatabaseBuddy.ViewModel
         {
             get
             {
-                if (m_UserName.IsNullOrEmpty() || m_Password.IsNullOrEmpty())
-                    return true;
                 return m_IntegratedSecurity;
             }
             set
@@ -658,16 +653,6 @@ namespace DatabaseBuddy.ViewModel
             }
         }
 
-        private void __ResetInvalidConnection(object sender, EventArgs e)
-        {
-            __ThrowMessage("Connection Failed", sender.ToString());
-            if (sender is SqlException SqlEx && SqlEx.Number != 103)
-                skipReload = true;
-            ServerName = GetRegistryValue(nameof(ServerName));
-            Password = string.Empty;
-            m_db = null;
-            Execute_Reload();
-        }
         #endregion
 
         #region [Execute_DeleteUnusedFiles]
@@ -890,7 +875,7 @@ namespace DatabaseBuddy.ViewModel
             {
                 m_ShowSystemDatabases = !m_ShowSystemDatabases;
                 Execute_Reload();
-                __WriteRegistryValue("ShowSystemDatabases", m_ShowSystemDatabases ? "1" : "0");
+                __WriteRegistryValue(nameof(ShowSystemDatabases), m_ShowSystemDatabases ? "1" : "0");
             }
             catch (Exception ex)
             {
@@ -1049,6 +1034,7 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region - public methods -
         #region [GetRegistryValue]
         public static string GetRegistryValue(string key)
         {
@@ -1067,10 +1053,38 @@ namespace DatabaseBuddy.ViewModel
             }
         }
         #endregion
+        #endregion
 
         #endregion
 
         #region - private methods -
+
+        #region [__ResetInvalidConnection]
+        private void __ResetInvalidConnection(object sender, EventArgs e)
+        {
+            __ThrowMessage("Connection Failed", sender.ToString());
+            if (sender is SqlException SqlEx && SqlEx.Number != 103)
+                skipReload = true;
+            ServerName = GetRegistryValue(nameof(ServerName));
+            Password = string.Empty;
+            m_db = null;
+            Execute_Reload();
+        }
+        #endregion
+
+        #region [__GetRegistryValues]
+        private void __GetRegistryValues()
+        {
+            ServerName = GetRegistryValue(nameof(ServerName));
+            UserName = GetRegistryValue(nameof(UserName));
+            Password = GetRegistryValue(nameof(Password));
+            m_ShowSystemDatabases = GetRegistryValue(nameof(ShowSystemDatabases)).ToBooleanValue();
+            m_FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
+            m_ScheduleActivated = GetRegistryValue("EnabledSchedule").ToBooleanValue();
+            m_MSSQLStudioPath = GetRegistryValue(nameof(m_MSSQLStudioPath));
+            IntegratedSecurity = GetRegistryValue(nameof(IntegratedSecurity)).ToBooleanValue();
+        }
+        #endregion
 
         #region [__ThrowMessage]
         private void __ThrowMessage(string Title, string Message)
@@ -1100,7 +1114,7 @@ namespace DatabaseBuddy.ViewModel
         #endregion
 
         #region [__GetODBCEntries]
-        private string[] __GetODBCEntries() => Registry.LocalMachine.OpenSubKey(ODBC32BitRegPath).GetSubKeyNames();
+        private static string[] __GetODBCEntries() => Registry.LocalMachine.OpenSubKey(ODBC32BitRegPath).GetSubKeyNames();
         #endregion
 
         #region [__DeleteODBCEntries]
@@ -1641,6 +1655,8 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
         {
             try
             {
+                if (!__IsLocal())
+                    return;
                 UnusedFiles = new List<string>();
                 if (Db != null)
                 {
@@ -1902,7 +1918,7 @@ CREATE DATABASE [{Entry.CloneName}]
         #endregion
 
         #region [__GetThemeCboItems]
-        private ObservableCollection<string> __GetThemeCboItems()
+        private static ObservableCollection<string> __GetThemeCboItems()
         {
             return new ObservableCollection<string>(ThemeManager.Current.ColorSchemes);
         }
