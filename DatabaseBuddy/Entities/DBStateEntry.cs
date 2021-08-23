@@ -1,5 +1,4 @@
-﻿using DatabaseBuddy.Core.OperationVisualization;
-using Övervakning.Shared.Entities;
+﻿using Övervakning.Shared.Entities;
 using Övervakning.Shared.Enums;
 using Övervakning.Shared.Helper;
 using System;
@@ -32,14 +31,13 @@ namespace DatabaseBuddy.Entities
         public string HandleStatusText => IsOnline ? "Take offline" : "Take online";
         public string HandleODBCState => HasODBCEntry ? "Delete ODBC" : "Create ODBC Entry";
         #endregion
-
-        public eOperationState OperationState => IsOnline ? eOperationState.Successful : eOperationState.Failed;
         public string StateTooltip => IsOnline ? "Online" : "Offline";
         public bool IsOnline
         {
             get;
             set;
         }
+        public bool IsOnlineToggled => IsOnline;
         public bool IsSelected { get; set; }
         public bool ForMultiMode { get; set; }
         public bool IsSystemDataBase => m_systemDataBases.Contains(DBName);
@@ -50,7 +48,7 @@ namespace DatabaseBuddy.Entities
         public long LDFSize { get; set; }
         public long MDFSize { get; set; }
         public long DataBaseSize => MDFSize + LDFSize;
-        public string DataBaseSizeString => $"Data File: {MDFSize} MB \n Log Size: {LDFSize} MB \n Sum: {DataBaseSize} MB";
+        public string DataBaseSizeString => $"Data File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize} MB";
         public string MDFLocation { get; set; }
         public string RestoreBackupCaption
         {
