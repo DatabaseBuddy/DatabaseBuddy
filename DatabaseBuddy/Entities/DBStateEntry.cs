@@ -48,7 +48,8 @@ namespace DatabaseBuddy.Entities
         public long LDFSize { get; set; }
         public long MDFSize { get; set; }
         public long DataBaseSize => MDFSize + LDFSize;
-        public string DataBaseSizeString => $"Data File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize} MB";
+        public string InformationString => $"Name: {DBName}\nData File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize} MB" +
+            $"\nData Location: {MDFLocation} \nLog Location: {LDFLocation}";
         public string MDFLocation { get; set; }
         public string RestoreBackupCaption
         {

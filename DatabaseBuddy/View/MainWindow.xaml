@@ -191,7 +191,7 @@
                                        Width="150" 
                                        Margin="10 0 10 0"
                                        VerticalAlignment="Center"
-                                       ToolTip="{Binding DataBaseSizeString}" />
+                                       ToolTip="{Binding InformationString}" />
                             <Button Content="Open Query"
                              Command="{Binding DataContext.OpenQuery,
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
@@ -202,12 +202,7 @@
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
                              CommandParameter="{Binding}"
                              Margin="0 0 10 0"/>
-                            <Button Content="{Binding HandleStatusText}"
-                             Command="{Binding DataContext.TakeSelectedOffline,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             CommandParameter="{Binding}"
-                               IsEnabled="{Binding RestrictedRights}"
-                             Margin="0 0 10 0"/>
+                            
                             <Button Content="Backup"
                              Command="{Binding DataContext.BackupSelectedDataBase,
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"

@@ -1579,6 +1579,35 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region [__GetLogicalFileNames]
+        private Dictionary<string, string> __GetLogicalFileNames(string BakPath)
+        {
+            string DataFile = string.Empty;
+            string LogFile = string.Empty;
+            var Cmd = $"RESTORE FILELISTONLY FROM DISK = '{BakPath}'";
+            using (var Reader = Db.GetDataReader(Cmd))
+            {
+                if (Reader.HasRows)
+                {
+                    while (Reader.Read())
+                    {
+                        var Type = Reader["Type"].ToStringValue();
+                        if (Type.Equals("D"))
+                            DataFile = Reader["LogicalName"].ToStringValue();
+                        else if (Type.Equals("L"))
+                            LogFile = Reader["LogicalName"].ToStringValue();
+                    }
+                    Reader.Close();
+                    Db.CloseDataReader();
+                }
+            }
+            var BackupFileList = new Dictionary<string, string>();
+            BackupFileList.Add(nameof(DataFile), DataFile);
+            BackupFileList.Add(nameof(LogFile), LogFile);
+            return BackupFileList;
+        }
+        #endregion
+
         #region [__RestoreBackup]
         private void __RestoreBackup(List<DBStateEntry> DataBaseEntries, bool SilentRestore = false)
         {
@@ -1600,6 +1629,7 @@ namespace DatabaseBuddy.ViewModel
                 {
                     foreach (var DataBase in DataBaseEntries)
                     {
+                        var BackupPrevData = __GetLogicalFileNames(DataBase.LastBackupPath);
                         if (DataBase.LastBackupPath.Length == 0)
                             continue;
                         var builder = new System.Text.StringBuilder();
@@ -1607,7 +1637,10 @@ namespace DatabaseBuddy.ViewModel
                         _ = builder.Append(Cmd);
 
                         builder.Append($@"RESTORE DATABASE [{DataBase.DBName}]
- FROM DISK = N'{DataBase.LastBackupPath}' WITH REPLACE;");
+FROM DISK = N'{DataBase.LastBackupPath}'
+WITH
+    MOVE '{BackupPrevData["DataFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.mdf',
+    MOVE '{BackupPrevData["LogFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.ldf'");
                         Cmd = builder.ToString();
                         _ = Db.ExecuteNonQuery(Cmd); ;
                     }
@@ -1635,7 +1668,8 @@ namespace DatabaseBuddy.ViewModel
             {
                 foreach (var item in Entries)
                 {
-                    if (item.DBName.Equals("master", StringComparison.InvariantCultureIgnoreCase))
+                    if (item.DBName.Equals("master", StringComparison.InvariantCultureIgnoreCase)
+                        || item.DBName.Equals("tempdb", StringComparison.InvariantCultureIgnoreCase))
                         continue;
                     var BackupPath = Path.GetDirectoryName(item.MDFLocation) + $@"\backup\{BackupTime}";
                     _ = Directory.CreateDirectory(BackupPath);
