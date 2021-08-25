@@ -1347,7 +1347,7 @@ namespace DatabaseBuddy.ViewModel
                         Cmd += "WHERE state_desc = 'ONLINE' ";
                     if (dbstate == eDATABASESTATE.OFFLINE)
                         Cmd += "WHERE state_desc = 'OFFLINE' ";
-                    Cmd += ";";
+                    Cmd += " AND is_read_only != 1;";
                     var tmpDatabaseEntries = new List<DBStateEntry>();
                     using (var Reader = Db.GetDataReader(Cmd))
                     {
