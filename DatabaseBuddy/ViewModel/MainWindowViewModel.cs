@@ -9,9 +9,6 @@ using DatabaseBuddy.Entities;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
-using Övervakning.Shared.Entities;
-using Övervakning.Shared.Enums;
-using Övervakning.Shared.Helper;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -48,7 +45,7 @@ namespace DatabaseBuddy.ViewModel
         private bool m_ShowSystemDatabases;
         private bool m_FileTrackingEnabled;
         private bool m_ScheduleActivated;
-        private List<Entry> m_TrackedFiles;
+        private List<object> m_TrackedFiles;
         private bool skipReload;
         private DBStateEntry m_SelectedDB;
         private List<DBStateEntry> m_DBEntries;
@@ -75,7 +72,6 @@ namespace DatabaseBuddy.ViewModel
                 __GetMSSQLStudioPath();
 
             __HandleTheming();
-            __HandleFileTrackingNeeds();
             skipReload = false;
             Execute_Reload();
         }
@@ -890,7 +886,6 @@ namespace DatabaseBuddy.ViewModel
             try
             {
                 m_FileTrackingEnabled = !m_FileTrackingEnabled;
-                __ActivateTaskScheduler();
                 Execute_Reload();
                 __WriteRegistryValue("EnableFileSizeMonitoring", m_FileTrackingEnabled ? "1" : "0");
             }
@@ -934,28 +929,28 @@ namespace DatabaseBuddy.ViewModel
         #region [Execute_StartMonitoring]
         public void Execute_StartMonitoring(object DatabaseEntry)
         {
-            try
-            {
-                if (DatabaseEntry is DBStateEntry DBEntry)
-                    m_TrackingDBStateEntry = DBEntry;
-                if (m_TrackingDBStateEntry != null && m_TrackingDBStateEntry.TrackedFiles.Any())
-                {
-                    var DeleteTrackingResult = MessageBox.Show($"Are you sure to remove the File Monitoring for the {m_TrackingDBStateEntry.DBName} Database", "Remove File Monitoring", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (DeleteTrackingResult == MessageBoxResult.Yes)
-                    {
-                        __AssignTrackedFiles();
-                        __RemoveTrackedFiles();
-                    }
-                    return;
-                }
-                var MaxFileSizeBox = new InputBox("Max FileSize", "Enter Max Filesize");
-                MaxFileSizeBox.OkRequested += __MaxFileSizeBox_OkRequested;
-                MaxFileSizeBox.ShowDialog();
-            }
-            catch (Exception ex)
-            {
-                __ThrowMessage($"{nameof(Execute_StartMonitoring)} failed!", ex.ToString());
-            }
+            //try
+            //{
+            //    if (DatabaseEntry is DBStateEntry DBEntry)
+            //        m_TrackingDBStateEntry = DBEntry;
+            //    if (m_TrackingDBStateEntry != null && m_TrackingDBStateEntry.TrackedFiles.Any())
+            //    {
+            //        var DeleteTrackingResult = MessageBox.Show($"Are you sure to remove the File Monitoring for the {m_TrackingDBStateEntry.DBName} Database", "Remove File Monitoring", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            //        if (DeleteTrackingResult == MessageBoxResult.Yes)
+            //        {
+            //            __AssignTrackedFiles();
+            //            __RemoveTrackedFiles();
+            //        }
+            //        return;
+            //    }
+            //    var MaxFileSizeBox = new InputBox("Max FileSize", "Enter Max Filesize");
+            //    MaxFileSizeBox.OkRequested += __MaxFileSizeBox_OkRequested;
+            //    MaxFileSizeBox.ShowDialog();
+            //}
+            //catch (Exception ex)
+            //{
+            //    __ThrowMessage($"{nameof(Execute_StartMonitoring)} failed!", ex.ToString());
+            //}
         }
 
         #endregion
@@ -1169,50 +1164,52 @@ namespace DatabaseBuddy.ViewModel
         #region [__FileSizeDimensionBox_OkRequested]
         private void __FileSizeDimensionBox_OkRequested(object sender, EventArgs e)
         {
-            eDataDimension CurrentDimension;
-            switch (sender.ToStringValue())
-            {
-                default:
-                case "B":
-                    CurrentDimension = eDataDimension.Byte;
-                    break;
-                case "KB":
-                    CurrentDimension = eDataDimension.Kilobyte;
-                    break;
-                case "MB":
-                    CurrentDimension = eDataDimension.Megabyte;
-                    break;
-                case "GB":
-                    CurrentDimension = eDataDimension.Gigabyte;
-                    break;
-                case "TB":
-                    CurrentDimension = eDataDimension.Terabyte;
-                    break;
-                case "PB":
-                    CurrentDimension = eDataDimension.Petabyte;
-                    break;
-            }
-            m_TrackedFiles.Add(new Entry
-            {
-                FilePath = m_TrackingDBStateEntry.LDFLocation,
-                MaxFileSize = m_TrackingMaxFileSizeInput.ToLongValue(),
-                DataDimension = CurrentDimension
-            });
-            IO.WriteFileList(m_TrackedFiles);
-            Execute_Reload();
+            //TODO: USE NEW File Checking
+            //eDataDimension CurrentDimension;
+            //switch (sender.ToStringValue())
+            //{
+            //    default:
+            //    case "B":
+            //        CurrentDimension = eDataDimension.Byte;
+            //        break;
+            //    case "KB":
+            //        CurrentDimension = eDataDimension.Kilobyte;
+            //        break;
+            //    case "MB":
+            //        CurrentDimension = eDataDimension.Megabyte;
+            //        break;
+            //    case "GB":
+            //        CurrentDimension = eDataDimension.Gigabyte;
+            //        break;
+            //    case "TB":
+            //        CurrentDimension = eDataDimension.Terabyte;
+            //        break;
+            //    case "PB":
+            //        CurrentDimension = eDataDimension.Petabyte;
+            //        break;
+            //}
+            //m_TrackedFiles.Add(new Entry
+            //{
+            //    FilePath = m_TrackingDBStateEntry.LDFLocation,
+            //    MaxFileSize = m_TrackingMaxFileSizeInput.ToLongValue(),
+            //    DataDimension = CurrentDimension
+            //});
+            //IO.WriteFileList(m_TrackedFiles);
+            //Execute_Reload();
         }
         #endregion
 
         #region [__AssignTrackedFiles]
         private void __AssignTrackedFiles()
         {
-            m_TrackedFiles = IO.ReadFileList() ?? new List<Entry>();
-            foreach (var TrackedFile in m_TrackedFiles)
-            {
-                var MatchingDBEntry = DBEntries.FirstOrDefault(x => x.LDFLocation.Equals(TrackedFile.FilePath) || x.MDFLocation.Equals(TrackedFile.FilePath));
-                if (MatchingDBEntry != null)
-                    MatchingDBEntry.TrackedFiles.Add(TrackedFile);
-            }
+            //TODO: USE NEW File Checking
+            //m_TrackedFiles = IO.ReadFileList() ?? new List<Entry>();
+            //foreach (var TrackedFile in m_TrackedFiles)
+            //{
+            //    var MatchingDBEntry = DBEntries.FirstOrDefault(x => x.LDFLocation.Equals(TrackedFile.FilePath) || x.MDFLocation.Equals(TrackedFile.FilePath));
+            //    if (MatchingDBEntry != null)
+            //        MatchingDBEntry.TrackedFiles.Add(TrackedFile);
+            //}
         }
         #endregion
 
@@ -1235,12 +1232,12 @@ namespace DatabaseBuddy.ViewModel
         #region [__RemoveTrackedFiles]
         private void __RemoveTrackedFiles()
         {
-            if (m_TrackedFiles != null && m_TrackedFiles.Any())
-            {
-                m_TrackedFiles.Remove(m_TrackingDBStateEntry.TrackedFiles.FirstOrDefault());
-                IO.WriteFileList(m_TrackedFiles);
-            }
-            Execute_Reload();
+            //if (m_TrackedFiles != null && m_TrackedFiles.Any())
+            //{
+            //    m_TrackedFiles.Remove(m_TrackingDBStateEntry.TrackedFiles.FirstOrDefault());
+            //    IO.WriteFileList(m_TrackedFiles);
+            //}
+            //Execute_Reload();
         }
         #endregion
 
@@ -1866,65 +1863,6 @@ CREATE DATABASE [{Entry.CloneName}]
             SelectedDB.CloneName = sender as string;
             __RunCloneDataBase(new List<DBStateEntry> { SelectedDB });
             _ = MessageBox.Show($"Successful cloned '{SelectedDB.DBName}' to {SelectedDB.CloneName}");
-        }
-        #endregion
-
-        #region [__ActivateTaskScheduler]
-        private void __ActivateTaskScheduler()
-        {
-            if (m_ScheduleActivated || !m_FileTrackingEnabled)
-                return;
-            var response = WindowTaskScheduler.Configure()
-                                              .CreateTask("FileMonitoring", @"C:\Windows\System32\WindowsPowerShell\v1.0\powerShell.exe command " + $"\"{Constants.APPLICATION_DOCUMENTS_FOLDER}\\Execute.ps1\"")
-                                              .RunDaily()
-                                              .RunEveryXMinutes(60)
-                                              .RunDurationFor(new TimeSpan(8, 30, 0))
-                                              .SetStartDate(DateTime.Now.AddDays(1))
-                                              .SetStartTime(new TimeSpan(8, 0, 0))
-                                              .Execute();
-            if (response.IsSuccess)
-                __WriteRegistryValue("EnabledSchedule", "1");
-        }
-        #endregion
-
-        #region [__HandleFileTrackingNeeds]
-        private void __HandleFileTrackingNeeds()
-        {
-            try
-            {
-                if (!Directory.Exists(Constants.APPLICATION_DOCUMENTS_FOLDER))
-                    Directory.CreateDirectory(Constants.APPLICATION_DOCUMENTS_FOLDER);
-
-                new List<string>
-      {
-        "Newtonsoft.Json.dll",
-        "Övervakning.Executeable.dll",
-        "Övervakning.Shared.dll",
-        "Övervakning.Executeable.deps.json",
-        "Övervakning.Executeable.runtimeconfig.json",
-      }.ForEach(x => __CopyFileIfNotExist(x));
-
-                if (!File.Exists(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, "Execute.ps1")))
-                {
-                    File.Create(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, "Execute.ps1")).Close();
-                    File.WriteAllText(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, "Execute.ps1"), $"Set-ExecutionPolicy remotesigned -force \n $mydocuments = [environment]::getfolderpath(\"mydocuments\") \n" +
-                      $"cd $mydocuments \n cd \"Övervakning\" \ndotnet Övervakning.Executeable.dll --NoVisualAlert", Encoding.UTF8);
-                }
-                __ActivateTaskScheduler();
-            }
-            catch (Exception ex)
-            {
-                __ThrowMessage($"{nameof(__HandleFileTrackingNeeds)} failed!", ex.ToString());
-            }
-        }
-        #endregion
-
-        #region [__CopyFileIfNotExist]
-        private static void __CopyFileIfNotExist(string FileName, bool OverWrite = false)
-        {
-            return;
-            if (!File.Exists(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, FileName)))
-                File.Copy(@$"\\DatabaseBuddy\RequiredDLLs\{FileName}", Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, FileName), OverWrite);
         }
         #endregion
 

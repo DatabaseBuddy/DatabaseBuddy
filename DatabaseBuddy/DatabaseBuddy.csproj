@@ -20,12 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Övervakning.Shared">
-      <HintPath>..\..\..\Users\Timo\Documents\DLLs\Övervakning.Shared.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="Resources\" />
   </ItemGroup>
 
