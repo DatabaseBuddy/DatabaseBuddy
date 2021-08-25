@@ -62,6 +62,7 @@
                         Height="22"
                         Content="Reload"
                          Command="{Binding Reload}"
+                        CommandParameter="{Binding}"
                          Margin="0 0 10 0"/>
                 <!--<Image Source="/Resources/refresh.png" Height="16"
                    Width="16"
@@ -202,7 +203,7 @@
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
                              CommandParameter="{Binding}"
                              Margin="0 0 10 0"/>
-                            
+
                             <Button Content="Backup"
                              Command="{Binding DataContext.BackupSelectedDataBase,
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"

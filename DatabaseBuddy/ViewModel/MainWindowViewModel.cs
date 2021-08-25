@@ -1,5 +1,4 @@
-﻿using ASquare.WindowsTaskScheduler;
-using ControlzEx.Theming;
+﻿using ControlzEx.Theming;
 using DatabaseBuddy.Core;
 using DatabaseBuddy.Core.Attributes;
 using DatabaseBuddy.Core.DatabaseExtender;
@@ -18,7 +17,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Principal;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -628,7 +626,7 @@ namespace DatabaseBuddy.ViewModel
         {
             try
             {
-                if (skipReload)
+                if (skipReload && obj == null)
                     return;
                 Db.ExecuteScalar("USE [master] SELECT TOP (1) xserver_name FROM [master].[dbo].[spt_fallback_db]");
                 __ReloadDBs();
@@ -1057,9 +1055,10 @@ namespace DatabaseBuddy.ViewModel
         #region [__ResetInvalidConnection]
         private void __ResetInvalidConnection(object sender, EventArgs e)
         {
+            if (sender is SqlException SqlEx && SqlEx.Number == 5011)
+                return;
             __ThrowMessage("Connection Failed", sender.ToString());
-            if (sender is SqlException SqlEx && SqlEx.Number != 103)
-                skipReload = true;
+            skipReload = true;
             ServerName = GetRegistryValue(nameof(ServerName));
             Password = string.Empty;
             m_db = null;
