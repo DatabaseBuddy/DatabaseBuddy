@@ -54,6 +54,7 @@ namespace DatabaseBuddy.ViewModel
         private bool m_IntegratedSecurity;
         private string m_BaseTheme = "Light";
         private string m_SelectedTheme = "Blue";
+        private MetroWindow MetroWnd;
         #endregion
 
 
@@ -61,6 +62,9 @@ namespace DatabaseBuddy.ViewModel
         public MainWindowViewModel()
         {
             ThemeManager.Current.ChangeTheme(Application.Current, "Light.Blue");
+
+            if (Application.Current.MainWindow is MetroWindow tmpMetroWindow)
+                MetroWnd = tmpMetroWindow;
             __GetRegistryValues();
             __InitializeCommands();
             __GetDefaultDataPath();
@@ -388,10 +392,11 @@ namespace DatabaseBuddy.ViewModel
                         var DataBaseEntries = new List<DBStateEntry> { State };
                         var Messagetext = $"Are you sure to take offline the following databases?\n";
                         DataBaseEntries.ForEach(x => Messagetext += $"-{x.DBName}\n");
-                        var KillResult = MessageBox.Show(Messagetext, "Confirm taking offline", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                        if (KillResult == MessageBoxResult.No)
+                        var KillResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm taking offline", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                        if (KillResult == MessageDialogResult.Canceled || KillResult == MessageDialogResult.Negative)
                             return;
-                        __KillConnections(DataBaseEntries);
+                        else if (KillResult == MessageDialogResult.Affirmative)
+                            __KillConnections(DataBaseEntries);
                     }
                     else
                         __ActivateConnections(new List<DBStateEntry> { State });
@@ -457,8 +462,8 @@ namespace DatabaseBuddy.ViewModel
                 var DataBaseEntries = __LoadDataBases(eDATABASESTATE.ONLINE);
                 var Messagetext = $"Are you sure to take offline the following databases?\n";
                 DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
-                var KillResult = MessageBox.Show(Messagetext, "Confirm taking offline", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (KillResult == MessageBoxResult.No)
+                var KillResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm taking offline", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
+                if (KillResult == MessageDialogResult.Canceled || KillResult == MessageDialogResult.Negative)
                     return;
                 __KillConnections(DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList());
             }
@@ -658,8 +663,8 @@ namespace DatabaseBuddy.ViewModel
                     return;
                 var Messagetext = $"Are you sure to delete the following {UnusedFiles.Count} unused Files?\n";
                 UnusedFiles.ForEach(x => Messagetext += $"-{x}\n");
-                var DeleteResult = MessageBox.Show(Messagetext, "Confirm delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (DeleteResult == MessageBoxResult.No)
+                var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                if (DeleteResult == MessageDialogResult.Canceled || DeleteResult == MessageDialogResult.Negative)
                     return;
                 else
                 {
@@ -819,9 +824,7 @@ namespace DatabaseBuddy.ViewModel
                     __RunCloneDataBase(SelectedDbs);
                 else if (SelectedDB != null)
                 {
-                    var Wnd = new InputBox("Choose Clone name", "Please type a name for the clone");
-                    Wnd.OkRequested += __Clone_InputBox_OkRequested;
-                    Wnd.ShowDialog();
+                    __RunCloneDatabaseWithAnyName(new List<DBStateEntry> { SelectedDB });
                 }
             }
             catch (Exception ex)
@@ -851,9 +854,7 @@ namespace DatabaseBuddy.ViewModel
         {
             try
             {
-                var Wnd = new InputBox("New database name", "Please enter your new database name");
-                Wnd.OkRequested += __RunCreateNewDataBase;
-                Wnd.ShowDialog();
+                __RunCreateNewDataBase();
             }
             catch (Exception ex)
             {
@@ -1083,7 +1084,7 @@ namespace DatabaseBuddy.ViewModel
         #region [__ThrowMessage]
         private void __ThrowMessage(string Title, string Message)
         {
-            ((MetroWindow)Application.Current.MainWindow).ShowMessageAsync(Title, Message);
+            (MetroWnd).ShowMessageAsync(Title, Message);
             skipReload = false;
         }
         #endregion
@@ -1507,8 +1508,8 @@ namespace DatabaseBuddy.ViewModel
             DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
             if (!silentDelete)
             {
-                var DeleteResult = MessageBox.Show(Messagetext, "Confirm delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (DeleteResult == MessageBoxResult.No)
+                var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                if (DeleteResult == MessageDialogResult.Canceled || DeleteResult == MessageDialogResult.Negative)
                     return;
             }
             __KillConnections(DataBaseEntries);
@@ -1615,8 +1616,8 @@ namespace DatabaseBuddy.ViewModel
                 DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList().ForEach(x => Messagetext += $"-{x.DBName} Last Backup {x.LastBackupTime}\n");
                 if (!SilentRestore)
                 {
-                    var RestoreBackupResult = MessageBox.Show(Messagetext, "Confirm restore", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (RestoreBackupResult == MessageBoxResult.No)
+                    var RestoreBackupResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm restore", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                    if (RestoreBackupResult == MessageDialogResult.Canceled || RestoreBackupResult == MessageDialogResult.Negative)
                         return;
                 }
                 __KillConnections(DataBaseEntries);
@@ -1642,7 +1643,7 @@ WITH
                     }
                 }
                 Execute_Reload();
-                MessageBox.Show($"Erfolgreich wiederhergestellt", "Wiederherstellung erfolgreich", MessageBoxButton.OK, MessageBoxImage.Information);
+                DialogManager.ShowModalMessageExternal(MetroWnd, $"Successful restored", "Restoring was successful");
             }
             catch (Exception ex)
             {
@@ -1676,7 +1677,7 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
                 _ = Db.ExecuteNonQuery(CmdBackup);
             }
             Execute_Reload();
-            _ = MessageBox.Show("Datenbankbackups erfolgreich erzeugt", "Backup erfolgreich", MessageBoxButton.OK, MessageBoxImage.Information);
+            DialogManager.ShowModalMessageExternal(MetroWnd, "Backups done", "Backups successful created");
         }
         #endregion
 
@@ -1735,7 +1736,7 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
             }
             else
             {
-                _ = MessageBox.Show($"{folderPath} Directory does not exist!");
+                _ = DialogManager.ShowModalMessageExternal((MetroWindow)Application.Current.MainWindow, "Directory does not exist", $"{folderPath} Directory does not exist!");
             }
         }
         #endregion
@@ -1769,29 +1770,30 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
         #endregion
 
         #region [__RenameDataBase]
-        private void __RenameDataBase(List<DBStateEntry> Entries)
+        private void __RenameDataBase(List<DBStateEntry> Entries, string Caption = "Choose the new name", string Message = "Please type the new name")
         {
-            var Wnd = new InputBox("Choose the new name", "Please type the new name", Entries.First().DBName);
-            Wnd.OkRequested += __NewNameTyped;
-            Wnd.ShowDialog();
-        }
-        #endregion
-
-        #region [__NewNameTyped]
-        private void __NewNameTyped(object sender, EventArgs e)
-        {
-            if (SelectedDB is DBStateEntry State && Db != null)
+            var Settings = new MetroDialogSettings();
+            Settings.DefaultText = Entries.First().DBName;
+            var NewName = DialogManager.ShowModalInputExternal(MetroWnd, Caption, Message, Settings)?.Trim();
+            if (NewName == null)
+                return;
+            if (NewName.Equals(""))
+                __RenameDataBase(Entries);
+            else
             {
-                if (DBEntries.Any(x => x.DBName.Equals(sender.ToString())))
+                if (SelectedDB is DBStateEntry State && Db != null)
                 {
-                    var Wnd = new InputBox("Rename failed", $"Database Name {sender} already exists. Please try again", State.DBName);
-                    Wnd.OkRequested += __NewNameTyped;
-                    Wnd.ShowDialog();
-                }
-                else
-                {
-                    Db.ExecuteNonQuery($@"USE [MASTER] ALTER DATABASE [{State.DBName}] MODIFY NAME = [{sender}] ;");
-                    Execute_Reload();
+                    if (State.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase) || Db == null)
+                        return;
+                    if (DBEntries.Any(x => x.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase)))
+                    {
+                        __RenameDataBase(Entries, "Rename failed", $"Database Name {NewName} already exists. Please try again");
+                    }
+                    else
+                    {
+                        Db.ExecuteNonQuery($@"USE [MASTER] ALTER DATABASE [{State.DBName}] MODIFY NAME = [{NewName}] ;");
+                        Execute_Reload();
+                    }
                 }
             }
         }
@@ -1841,27 +1843,58 @@ CREATE DATABASE [{Entry.CloneName}]
         #endregion
 
         #region [__RunCreateNewDataBase]
-        private void __RunCreateNewDataBase(object sender, EventArgs e)
+        private void __RunCreateNewDataBase(string Caption = "New database name", string Message = "Please enter your new database name")
         {
-            if (sender == null || ((string)sender).Length == 0)
+            var NewName = DialogManager.ShowModalInputExternal(MetroWnd, Caption, Message)?.Trim();
+            if (NewName == null)
                 return;
-
-            if (Db != null)
+            if (NewName.Equals(""))
+                __RunCreateNewDataBase("Retry", "Database Name cannot be empty");
+            else
             {
-                var Cmd = "USE[master] \n";
-                Cmd += $" CREATE DATABASE [{sender as string}];";
-                Db.ExecuteNonQuery(Cmd);
+                if (Db == null)
+                    return;
+                if (DBEntries.Any(x => x.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase)))
+                {
+                    __RunCreateNewDataBase("Creation failed", $"Database Name {NewName} already exists. Please try again");
+                }
+                else
+                {
+                    var Cmd = "USE[master] \n";
+                    Cmd += $" CREATE DATABASE [{NewName}];";
+                    Db.ExecuteNonQuery(Cmd);
+                }
             }
             Execute_Reload();
         }
         #endregion
 
-        #region [__Clone_InputBox_OkRequested]
-        private void __Clone_InputBox_OkRequested(object sender, EventArgs e)
+        #region [__RunCloneDatabaseWithAnyName]
+        private void __RunCloneDatabaseWithAnyName(List<DBStateEntry> Entries, string Caption = "Choose Clone name", string Message = "Please type a name for the clone")
         {
-            SelectedDB.CloneName = sender as string;
-            __RunCloneDataBase(new List<DBStateEntry> { SelectedDB });
-            _ = MessageBox.Show($"Successful cloned '{SelectedDB.DBName}' to {SelectedDB.CloneName}");
+            var Settings = new MetroDialogSettings();
+            Settings.DefaultText = $"{Entries.First().DBName}_Clone";
+            var NewName = DialogManager.ShowModalInputExternal(MetroWnd, Caption, Message, Settings)?.Trim();
+            if (NewName == null)
+                return;
+            if (NewName.Equals(""))
+                __RunCloneDatabaseWithAnyName(Entries, "Retry", "Clone Name cannot be empty");
+            else
+            {
+                if (Db == null)
+                    return;
+                if (DBEntries.Any(x => x.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase)))
+                {
+                    __RunCloneDatabaseWithAnyName(Entries, "Rename failed", $"Database Name {NewName} already exists. Please try again");
+                }
+                else
+                {
+                    SelectedDB.CloneName = NewName;
+                    __RunCloneDataBase(new List<DBStateEntry> { SelectedDB });
+                    Execute_Reload();
+                    DialogManager.ShowModalMessageExternal(MetroWnd, "Successful cloned", $"Successful cloned '{SelectedDB.DBName}' to {SelectedDB.CloneName}");
+                }
+            }
         }
         #endregion
 
