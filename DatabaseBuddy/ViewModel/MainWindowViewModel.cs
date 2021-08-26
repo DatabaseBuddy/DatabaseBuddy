@@ -661,6 +661,8 @@ namespace DatabaseBuddy.ViewModel
                 {
                     ListBoxDbs.ItemsSource = null;
                     ListBoxDbs.ItemsSource = DBEntries;
+                    var tmpFilterValue = DBFilter;
+                    DBFilter = tmpFilterValue;
                 }
             }
             catch (Exception ex)
