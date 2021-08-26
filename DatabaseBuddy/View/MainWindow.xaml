@@ -120,8 +120,12 @@
                        FontSize="16"
                        FontWeight="DemiBold"/>
                 <TextBox HorizontalAlignment="Left"
-                             Width="200"
-                             TextChanged="__FilterChanged"/>
+                         Width="300"
+                         Height="22"
+                         TextChanged="__FilterChanged"
+                         mah:TextBoxHelper.ClearTextButton="True"
+                         mah:TextBoxHelper.AutoWatermark="True"
+                         mah:TextBoxHelper.Watermark="Servername"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
                       Grid.Row="2" 
