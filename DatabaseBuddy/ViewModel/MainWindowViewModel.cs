@@ -16,6 +16,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Principal;
+using System.ServiceProcess;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -38,6 +39,7 @@ namespace DatabaseBuddy.ViewModel
         private string m_TrackingMaxFileSizeInput;
         private DBStateEntry m_TrackingDBStateEntry;
         private string m_DefaultDataPath;
+        private string m_InstanceName;
 
         private bool m_ShowSystemDatabases;
         private bool m_FileTrackingEnabled;
@@ -67,7 +69,7 @@ namespace DatabaseBuddy.ViewModel
                 MetroWnd = tmpMetroWindow;
             __GetRegistryValues();
             __InitializeCommands();
-            __GetDefaultDataPath();
+            __GetExtendedDBInformations();
             m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
             UnusedFiles = new List<string>();
             if (m_MSSQLStudioPath.IsNullOrEmpty())
@@ -110,7 +112,7 @@ namespace DatabaseBuddy.ViewModel
         public ICommand ToggleSettings { get; set; }
         public ICommand ChangeBaseTheme { get; set; }
         public ICommand ChangeTheme { get; set; }
-
+        public ICommand RestartSQLServerInstance { get; set; }
 
         #endregion
 
@@ -1048,6 +1050,29 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region [Execute_RestartService]
+        public void Execute_RestartService(object obj = null)
+        {
+            ServiceController service = new ServiceController(m_InstanceName);
+            try
+            {
+                int millisec1 = Environment.TickCount;
+                TimeSpan timeout = TimeSpan.FromMilliseconds(2000);
+
+                service.Stop();
+                service.WaitForStatus(ServiceControllerStatus.Stopped, timeout);
+
+                service.Start();
+                service.WaitForStatus(ServiceControllerStatus.Running, timeout);
+                DialogManager.ShowModalMessageExternal(MetroWnd, "Successful Restarted", $"SQL Server Instance '{m_InstanceName}' was restarted successful");
+            }
+            catch (Exception ex)
+            {
+                __ThrowMessage($"{nameof(Execute_RestartService)} failed!", ex.ToString());
+            }
+        }
+        #endregion
+
         #region - public methods -
         #region [GetRegistryValue]
         public static string GetRegistryValue(string key)
@@ -1927,14 +1952,24 @@ CREATE DATABASE [{Entry.CloneName}]
         #endregion
 
         #region [__GetDefaultDataPath]
-        private void __GetDefaultDataPath()
+        private void __GetExtendedDBInformations()
         {
             using (var Reader = Db.GetDataReader(@"SELECT SERVERPROPERTY('InstanceDefaultDataPath') AS InstanceDefaultDataPath"))
             {
-                if (Reader.HasRows)
+                if (Reader != null && Reader.HasRows)
                 {
                     while (Reader.Read())
                         m_DefaultDataPath = Reader["InstanceDefaultDataPath"].ToStringValue();
+                    Reader.Close();
+                    Db.CloseDataReader();
+                }
+            }
+            using (var Reader = Db.GetDataReader(@"SELECT @@SERVICENAME AS InstanceName"))
+            {
+                if (Reader != null && Reader.HasRows)
+                {
+                    while (Reader.Read())
+                        m_InstanceName = Reader["InstanceName"].ToStringValue();
                     Reader.Close();
                     Db.CloseDataReader();
                 }
@@ -1980,6 +2015,7 @@ CREATE DATABASE [{Entry.CloneName}]
             RestoreMultipleBaks = new DelegateCommand<object>(Execute_RestoreMultipleBaks);
             ToggleSettings = new DelegateCommand<object>(Execute_ToggleSettings);
             ChangeBaseTheme = new DelegateCommand<object>(Execute_ChangeBaseTheme);
+            RestartSQLServerInstance = new DelegateCommand<object>(Execute_RestartService);
         }
         #endregion
 
