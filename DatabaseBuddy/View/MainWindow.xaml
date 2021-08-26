@@ -125,7 +125,7 @@
                          TextChanged="__FilterChanged"
                          mah:TextBoxHelper.ClearTextButton="True"
                          mah:TextBoxHelper.AutoWatermark="True"
-                         mah:TextBoxHelper.Watermark="Servername"/>
+                         mah:TextBoxHelper.Watermark="Filter"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
                       Grid.Row="2" 
