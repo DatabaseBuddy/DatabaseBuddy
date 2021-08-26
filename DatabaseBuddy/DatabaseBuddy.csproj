@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Resources\**" />
+    <EmbeddedResource Remove="Resources\**" />
+    <None Remove="Resources\**" />
+    <Page Remove="Resources\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="ASquare.WindowsTaskScheduler" Version="1.6.0" />
     <PackageReference Include="Expression.Interaction" Version="3.0.40218" />
     <PackageReference Include="MahApps.Metro" Version="2.4.7" />
@@ -17,10 +24,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DatabaseBuddy.Core\DatabaseBuddy.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Resources\" />
   </ItemGroup>
 
 </Project>
