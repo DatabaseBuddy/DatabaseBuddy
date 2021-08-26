@@ -55,6 +55,7 @@ namespace DatabaseBuddy.ViewModel
         private string m_BaseTheme = "Light";
         private string m_SelectedTheme = "Blue";
         private MetroWindow MetroWnd;
+        private string m_DBFilter;
         #endregion
 
 
@@ -117,6 +118,24 @@ namespace DatabaseBuddy.ViewModel
         #region - properties -
 
         #region - public properties -
+
+        public string DBFilter
+        {
+            get
+            {
+                return m_DBFilter;
+            }
+            set
+            {
+                m_DBFilter = value;
+                ListBoxDbs.ItemsSource = null;
+                if (value.ToString().IsNullOrEmpty())
+                    ListBoxDbs.ItemsSource = DBEntries;
+                else
+                    ListBoxDbs.ItemsSource = DBEntries.Where(x => x.DBName.Contains(value.ToString(), StringComparison.InvariantCultureIgnoreCase));
+            }
+        }
+
         [DependsUpon(nameof(ServerName))]
         public string SystemInformation
         {
@@ -1267,7 +1286,8 @@ namespace DatabaseBuddy.ViewModel
                   $" -S {ServerName} " +
                   $" -d {DataBaseName}" +
                   (!IntegratedSecurity && m_UserName.IsNotNullOrEmpty() && m_Password.IsNotNullOrEmpty() ?
-                  $" -U {m_UserName}" : " -E") +
+                  $" -U {m_UserName} " +
+                  $"-P {Password}" : " -E") +
                   " -nosplash";
                 ssms.Start();
             }

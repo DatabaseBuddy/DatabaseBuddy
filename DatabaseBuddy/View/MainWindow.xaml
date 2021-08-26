@@ -46,7 +46,8 @@
             <Grid.RowDefinitions>
                 <RowDefinition MaxHeight="30"/>
                 <RowDefinition Height="2*"/>
-                <RowDefinition Height="1*"/>
+                <RowDefinition Height="4*"/>
+                <RowDefinition Height="2*"/>
             </Grid.RowDefinitions>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
@@ -108,9 +109,22 @@
                 </StackPanel>
                 <mah:ToggleSwitch Content="Settings"
                                   Command="{Binding ToggleSettings}"/>
+
+            </StackPanel>
+            <StackPanel Orientation="Horizontal"                         
+                            Grid.Row="1"
+                            Grid.Column="0">
+                <Label Content="Filter: "
+                       Width="200"
+                       Margin="10 0 -20 0"
+                       FontSize="16"
+                       FontWeight="DemiBold"/>
+                <TextBox HorizontalAlignment="Left"
+                             Width="200"
+                             TextChanged="__FilterChanged"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
-                      Grid.Row="1" 
+                      Grid.Row="2" 
                       Grid.ColumnSpan="2"
                       Margin="0 0 0 10"
                       Height="Auto"
@@ -189,7 +203,7 @@
                             <TextBlock Text="{Binding DBName}"
                                        FontSize="16"
                                        FontWeight="DemiBold"
-                                       Width="150" 
+                                       MinWidth="300" 
                                        Margin="10 0 10 0"
                                        VerticalAlignment="Center"
                                        ToolTip="{Binding InformationString}" />
@@ -231,7 +245,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <Grid Grid.Row="2"
+            <Grid Grid.Row="3"
             Grid.ColumnSpan="2"
             VerticalAlignment="Top">
                 <Grid.ColumnDefinitions>
@@ -372,13 +386,13 @@
                                    Grid.Row="3"
                                    Grid.Column="0" 
                                    Visibility="{Binding CredentialsVisibility}"/>
-                            <TextBox Height="22"
-                                     Text="{Binding Password, Mode=TwoWay}"
-                                     MinWidth="50"
-                                     Margin="0 0 10 0"
-                                     Grid.Row="3"
-                                     Grid.Column="1"
-                                     Visibility="{Binding CredentialsVisibility}"/>
+                            <PasswordBox Height="22"
+                                         PasswordChanged="__PasswordChanged"
+                                         MinWidth="50"
+                                         Margin="0 0 10 0"
+                                         Grid.Row="3"
+                                         Grid.Column="1"
+                                         Visibility="{Binding CredentialsVisibility}"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="General">

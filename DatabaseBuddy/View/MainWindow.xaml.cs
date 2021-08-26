@@ -1,6 +1,7 @@
 ﻿using DatabaseBuddy.ViewModel;
 using MahApps.Metro.Controls;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace DatabaseBuddy.View
 {
@@ -32,8 +33,19 @@ namespace DatabaseBuddy.View
         }
         #endregion
 
-        #endregion
 
+        private void __PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            ((MainWindowViewModel)DataContext).Password = ((PasswordBox)sender).Password;
+        }
+
+        #region [__FilterChanged]
+        private void __FilterChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            ((MainWindowViewModel)DataContext).DBFilter = ((TextBox)sender).Text;
+        }
+        #endregion
+        #endregion
     }
 
 }
