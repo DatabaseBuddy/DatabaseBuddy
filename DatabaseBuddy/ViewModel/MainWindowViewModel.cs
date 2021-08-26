@@ -3,7 +3,6 @@ using DatabaseBuddy.Core;
 using DatabaseBuddy.Core.Attributes;
 using DatabaseBuddy.Core.DatabaseExtender;
 using DatabaseBuddy.Core.Extender;
-using DatabaseBuddy.Dialogs;
 using DatabaseBuddy.Entities;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
@@ -1173,10 +1172,10 @@ namespace DatabaseBuddy.ViewModel
         #region [__MaxFileSizeBox_OkRequested]
         private void __MaxFileSizeBox_OkRequested(object sender, EventArgs e)
         {
-            m_TrackingMaxFileSizeInput = sender.ToString();
-            var FileSizeDimensionBox = new InputBox("File Size Dimension", "Please choose one of the following Dimensions: B, KB, MB, GB, TB, PB");
-            FileSizeDimensionBox.OkRequested += __FileSizeDimensionBox_OkRequested;
-            FileSizeDimensionBox.ShowDialog();
+            //m_TrackingMaxFileSizeInput = sender.ToString();
+            //var FileSizeDimensionBox = new InputBox("File Size Dimension", "Please choose one of the following Dimensions: B, KB, MB, GB, TB, PB");
+            //FileSizeDimensionBox.OkRequested += __FileSizeDimensionBox_OkRequested;
+            //FileSizeDimensionBox.ShowDialog();
         }
         #endregion
 
