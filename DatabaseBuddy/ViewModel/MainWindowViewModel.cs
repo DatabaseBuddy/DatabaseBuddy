@@ -950,6 +950,7 @@ namespace DatabaseBuddy.ViewModel
         #region [Execute_StartMonitoring]
         public void Execute_StartMonitoring(object DatabaseEntry)
         {
+            __ThrowMessage($"{nameof(Execute_StartMonitoring)} failed.", "The method is not yet implemented.");
             //try
             //{
             //    if (DatabaseEntry is DBStateEntry DBEntry)
@@ -1199,6 +1200,7 @@ namespace DatabaseBuddy.ViewModel
         #region [__MaxFileSizeBox_OkRequested]
         private void __MaxFileSizeBox_OkRequested(object sender, EventArgs e)
         {
+            __ThrowMessage($"{nameof(__MaxFileSizeBox_OkRequested)} failed.", "The method is not yet implemented.");
             //m_TrackingMaxFileSizeInput = sender.ToString();
             //var FileSizeDimensionBox = new InputBox("File Size Dimension", "Please choose one of the following Dimensions: B, KB, MB, GB, TB, PB");
             //FileSizeDimensionBox.OkRequested += __FileSizeDimensionBox_OkRequested;
@@ -1209,6 +1211,7 @@ namespace DatabaseBuddy.ViewModel
         #region [__FileSizeDimensionBox_OkRequested]
         private void __FileSizeDimensionBox_OkRequested(object sender, EventArgs e)
         {
+            __ThrowMessage($"{nameof(__FileSizeDimensionBox_OkRequested)} failed.", "The method is not yet implemented.");
             //TODO: USE NEW File Checking
             //eDataDimension CurrentDimension;
             //switch (sender.ToStringValue())
@@ -1247,6 +1250,7 @@ namespace DatabaseBuddy.ViewModel
         #region [__AssignTrackedFiles]
         private void __AssignTrackedFiles()
         {
+            __ThrowMessage($"{nameof(__AssignTrackedFiles)} failed.", "The method is not yet implemented.");
             //TODO: USE NEW File Checking
             //m_TrackedFiles = IO.ReadFileList() ?? new List<Entry>();
             //foreach (var TrackedFile in m_TrackedFiles)
@@ -1277,6 +1281,7 @@ namespace DatabaseBuddy.ViewModel
         #region [__RemoveTrackedFiles]
         private void __RemoveTrackedFiles()
         {
+            __ThrowMessage($"{nameof(__RemovedTrackedFiles)} failed.", "The method is not yet implemented.");
             //if (m_TrackedFiles != null && m_TrackedFiles.Any())
             //{
             //    m_TrackedFiles.Remove(m_TrackingDBStateEntry.TrackedFiles.FirstOrDefault());
