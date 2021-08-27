@@ -46,7 +46,8 @@
             <Grid.RowDefinitions>
                 <RowDefinition MaxHeight="30"/>
                 <RowDefinition Height="2*"/>
-                <RowDefinition Height="1*"/>
+                <RowDefinition Height="4*"/>
+                <RowDefinition Height="2*"/>
             </Grid.RowDefinitions>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
@@ -62,6 +63,7 @@
                         Height="22"
                         Content="Reload"
                          Command="{Binding Reload}"
+                        CommandParameter="{Binding}"
                          Margin="0 0 10 0"/>
                 <!--<Image Source="/Resources/refresh.png" Height="16"
                    Width="16"
@@ -107,9 +109,26 @@
                 </StackPanel>
                 <mah:ToggleSwitch Content="Settings"
                                   Command="{Binding ToggleSettings}"/>
+
+            </StackPanel>
+            <StackPanel Orientation="Horizontal"                         
+                            Grid.Row="1"
+                            Grid.Column="0">
+                <Label Content="Filter: "
+                       Width="200"
+                       Margin="10 0 -20 0"
+                       FontSize="16"
+                       FontWeight="DemiBold"/>
+                <TextBox HorizontalAlignment="Left"
+                         Width="300"
+                         Height="22"
+                         TextChanged="__FilterChanged"
+                         mah:TextBoxHelper.ClearTextButton="True"
+                         mah:TextBoxHelper.AutoWatermark="True"
+                         mah:TextBoxHelper.Watermark="Filter"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
-                      Grid.Row="1" 
+                      Grid.Row="2" 
                       Grid.ColumnSpan="2"
                       Margin="0 0 0 10"
                       Height="Auto"
@@ -188,10 +207,10 @@
                             <TextBlock Text="{Binding DBName}"
                                        FontSize="16"
                                        FontWeight="DemiBold"
-                                       Width="150" 
+                                       MinWidth="300" 
                                        Margin="10 0 10 0"
                                        VerticalAlignment="Center"
-                                       ToolTip="{Binding DataBaseSizeString}" />
+                                       ToolTip="{Binding InformationString}" />
                             <Button Content="Open Query"
                              Command="{Binding DataContext.OpenQuery,
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
@@ -202,12 +221,7 @@
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
                              CommandParameter="{Binding}"
                              Margin="0 0 10 0"/>
-                            <Button Content="{Binding HandleStatusText}"
-                             Command="{Binding DataContext.TakeSelectedOffline,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             CommandParameter="{Binding}"
-                               IsEnabled="{Binding RestrictedRights}"
-                             Margin="0 0 10 0"/>
+
                             <Button Content="Backup"
                              Command="{Binding DataContext.BackupSelectedDataBase,
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
@@ -235,7 +249,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <Grid Grid.Row="2"
+            <Grid Grid.Row="3"
             Grid.ColumnSpan="2"
             VerticalAlignment="Top">
                 <Grid.ColumnDefinitions>
@@ -338,7 +352,7 @@
                             <Button Height="22"
                                         Content="Reconnect"
                                         Command="{Binding Reconnect}"
-                                        Margin="0 0 10 0"
+                                        Margin="0 10 10 0"
                                     Grid.Row="0"
                                     Grid.Column="0"/>
                             <TextBox Height="22"
@@ -347,27 +361,29 @@
                                      mah:TextBoxHelper.Watermark="Servername"
                                      Text="{Binding ServerName, Mode=TwoWay}"
                                      MinWidth="50"
-                                     Margin="0 0 10 0"
+                                     Margin="0 10 0 0"
                                      Grid.Row="0"
                                      Grid.Column="1"/>
                             <Label Content="IntegratedSecurity"
                                    Grid.Row="1"
-                                   Grid.Column="0"/>
+                                   Grid.Column="0"
+                                   Margin="0 10 10 0"/>
                             <CheckBox Grid.Row="1"
                                       Grid.Column="1"
-                                      IsChecked="{Binding IntegratedSecurity, Mode=TwoWay}"/>
-
+                                      IsChecked="{Binding IntegratedSecurity, Mode=TwoWay}"
+                                      Margin="0 10 0 0"/>
                             <Label Content="Username"
                                    Grid.Row="2"
                                    Grid.Column="0" 
-                                   Visibility="{Binding CredentialsVisibility}"/>
+                                   Visibility="{Binding CredentialsVisibility}"
+                                   Margin="0 10 10 0"/>
                             <TextBox Height="22"
                                      mah:TextBoxHelper.ClearTextButton="True"
                                      mah:TextBoxHelper.AutoWatermark="True"
                                      mah:TextBoxHelper.Watermark="Username"
                                      Text="{Binding UserName, Mode=TwoWay}"
                                      MinWidth="50"
-                                     Margin="0 0 10 0"
+                                     Margin="0 10 0 0"
                                      Grid.Row="2"
                                      Grid.Column="1"
                                      Visibility="{Binding CredentialsVisibility}"/>
@@ -375,14 +391,20 @@
                             <Label Content="Password"
                                    Grid.Row="3"
                                    Grid.Column="0" 
+                                   Margin="0 10 10 0"
                                    Visibility="{Binding CredentialsVisibility}"/>
-                            <TextBox Height="22"
-                                     Text="{Binding Password, Mode=TwoWay}"
-                                     MinWidth="50"
-                                     Margin="0 0 10 0"
-                                     Grid.Row="3"
-                                     Grid.Column="1"
-                                     Visibility="{Binding CredentialsVisibility}"/>
+                            <PasswordBox Height="22"
+                                         PasswordChanged="__PasswordChanged"
+                                         MinWidth="50"
+                                         Margin="0 10 0 0"
+                                         Grid.Row="3"
+                                         Grid.Column="1"
+                                         Visibility="{Binding CredentialsVisibility}"/>
+                            <Button Content="Restart SQL Server Instance" 
+                                    Command="{Binding RestartSQLServerInstance}"
+                                    Grid.Row="4"
+                                    Grid.ColumnSpan="2"
+                                    Margin="0 10 0 0"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="General">

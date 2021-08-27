@@ -1,7 +1,4 @@
-﻿using Övervakning.Shared.Entities;
-using Övervakning.Shared.Enums;
-using Övervakning.Shared.Helper;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -16,7 +13,7 @@ namespace DatabaseBuddy.Entities
         public DBStateEntry()
         {
             m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
-            TrackedFiles = new List<Entry>();
+            TrackedFiles = new List<object>();
         }
         #endregion
 
@@ -48,7 +45,8 @@ namespace DatabaseBuddy.Entities
         public long LDFSize { get; set; }
         public long MDFSize { get; set; }
         public long DataBaseSize => MDFSize + LDFSize;
-        public string DataBaseSizeString => $"Data File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize} MB";
+        public string InformationString => $"Name: {DBName}\nData File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize} MB" +
+            $"\nData Location: {MDFLocation} \nLog Location: {LDFLocation}";
         public string MDFLocation { get; set; }
         public string RestoreBackupCaption
         {
@@ -65,23 +63,24 @@ namespace DatabaseBuddy.Entities
             }
         }
         public bool HasODBCEntry { get; set; }
-        public List<Entry> TrackedFiles { get; set; }
+        public List<object> TrackedFiles { get; set; }
         public Brush TrackedFilesBrush => TrackedFiles.Any() ? Brushes.Green : Brushes.Red;
 
         public string TrackedFileState
         {
             get
             {
-                if (TrackedFiles.Any())
-                {
+                //if (TrackedFiles.Any())
+                //{
                     var File = TrackedFiles.FirstOrDefault();
-                    var ConvertedSize = DataDimensionConverter.Convert(LDFSize, eDataDimension.Megabyte, File.DataDimension);
-                    return $"Current Log Size {LDFSize} MB: {ConvertedSize} {File.DataDimension} | Max Size {TrackedFiles.FirstOrDefault().MaxFileSize} {File.DataDimension}";
-                }
-                else
-                {
-                    return "No Tracking Activated";
-                }
+                    return "TrackingFiles Evolution coming soon";
+                    //var ConvertedSize = DataDimensionConverter.Convert(LDFSize, eDataDimension.Megabyte, File.DataDimension);
+                    //return $"Current Log Size {LDFSize} MB: {ConvertedSize} {File.DataDimension} | Max Size {TrackedFiles.FirstOrDefault().MaxFileSize} {File.DataDimension}";
+                //}
+                //else
+                //{
+                //    return "No Tracking Activated";
+                //}
             }
         }
         #endregion
