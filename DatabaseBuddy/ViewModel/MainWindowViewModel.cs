@@ -130,7 +130,7 @@ namespace DatabaseBuddy.ViewModel
             {
                 m_DBFilter = value;
                 ListBoxDbs.ItemsSource = null;
-                if (value.ToString().IsNullOrEmpty())
+                if (value.IsNullOrEmpty())
                     ListBoxDbs.ItemsSource = DBEntries;
                 else
                     ListBoxDbs.ItemsSource = DBEntries.Where(x => x.DBName.Contains(value.ToString(), StringComparison.InvariantCultureIgnoreCase));
