@@ -113,6 +113,7 @@ namespace DatabaseBuddy.ViewModel
         public ICommand ChangeBaseTheme { get; set; }
         public ICommand ChangeTheme { get; set; }
         public ICommand RestartSQLServerInstance { get; set; }
+        public ICommand RestartAsAdmin { get; set; }
 
         #endregion
 
@@ -1073,6 +1074,30 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region [Execute_RestartAsAdmin]
+        public void Execute_RestartAsAdmin(object obj = null)
+        {
+            try
+            {
+                var Location = Directory.GetParent(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)).Parent.Parent.FullName;
+                var Exe = Directory.GetFiles($"{Location}", $"{nameof(DatabaseBuddy)}.exe", SearchOption.AllDirectories);
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = Exe.First(),
+                    Arguments = string.Empty,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                Process.Start(startInfo);
+                Application.Current.Shutdown();
+            }
+            catch (Exception)
+            {
+                //Do Not Throw here
+            }
+        }
+        #endregion
+
         #region - public methods -
         #region [GetRegistryValue]
         public static string GetRegistryValue(string key)
@@ -2016,6 +2041,7 @@ CREATE DATABASE [{Entry.CloneName}]
             ToggleSettings = new DelegateCommand<object>(Execute_ToggleSettings);
             ChangeBaseTheme = new DelegateCommand<object>(Execute_ChangeBaseTheme);
             RestartSQLServerInstance = new DelegateCommand<object>(Execute_RestartService);
+            RestartAsAdmin = new DelegateCommand<object>(Execute_RestartAsAdmin);
         }
         #endregion
 
