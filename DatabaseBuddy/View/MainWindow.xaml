@@ -106,6 +106,9 @@
                     <TextBlock Text="Some functions require admin permissions" 
                             VerticalAlignment="Center"
                             Margin="5 0 0 0"/>
+                    <Button Content="Restart in Admin Mode" 
+                            Command="{Binding RestartAsAdmin}"
+                            Margin="5 0 0 0"/>
                 </StackPanel>
                 <mah:ToggleSwitch Content="Settings"
                                   Command="{Binding ToggleSettings}"/>
