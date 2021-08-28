@@ -36,15 +36,12 @@ namespace DatabaseBuddy.ViewModel
         private string m_DNSName = string.Empty;
         private string m_DNSBase = "{0}_{1}";
 
-        private string m_TrackingMaxFileSizeInput;
-        private DBStateEntry m_TrackingDBStateEntry;
         private string m_DefaultDataPath;
         private string m_InstanceName;
 
         private bool m_ShowSystemDatabases;
         private bool m_FileTrackingEnabled;
         private bool m_ScheduleActivated;
-        private List<object> m_TrackedFiles;
         private bool skipReload;
         private DBStateEntry m_SelectedDB;
         private List<DBStateEntry> m_DBEntries;
@@ -57,7 +54,7 @@ namespace DatabaseBuddy.ViewModel
         private string m_SelectedTheme = "Blue";
         private MetroWindow MetroWnd;
         private string m_DBFilter;
-        private long m_MaxLogSize;
+        private static long m_MaxLogSize;
         #endregion
 
         #region [Ctor]
@@ -400,7 +397,7 @@ namespace DatabaseBuddy.ViewModel
             }
         }
 
-        public long MaxLogSize
+        public static long MaxLogSize
         {
             get
             {

@@ -1,5 +1,6 @@
 ﻿using DatabaseBuddy.Core.Entities;
 using DatabaseBuddy.Core.Extender;
+using DatabaseBuddy.ViewModel;
 using System.Collections.Generic;
 using System.Windows;
 
@@ -16,8 +17,10 @@ namespace DatabaseBuddy.Entities
 
         #region - properties -
         #region - public properties -
-        public Visibility WarningVisible => IsSystemDatabase ? Visibility.Visible : Visibility.Hidden;
+        public Visibility SystemDatabaseWarningVisible => IsSystemDatabase ? Visibility.Visible : Visibility.Hidden;
+        public Visibility TrackingWarningVisible => LDFSize.ToMegabyte() >= MainWindowViewModel.MaxLogSize && MainWindowViewModel.MaxLogSize != 0 ? Visibility.Visible : Visibility.Hidden;
         public string TrackedFileState => $"Current Log Size {LDFSize.ToMegabyte()} MB";
+
         #endregion
 
         #region - private methods -
