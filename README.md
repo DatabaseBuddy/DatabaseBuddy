@@ -20,7 +20,7 @@ software development trainees from Germany.
 - Delete database
 
 # Download
-
+[Version 0.1](https://github.com/DatabaseBuddy/DatabaseBuddy/releases)
 
 # Screenshots
 <img src="./Images/DatabaseBuddyOverview_Light.PNG">
