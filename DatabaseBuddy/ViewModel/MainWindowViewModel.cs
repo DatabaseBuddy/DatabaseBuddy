@@ -4,7 +4,6 @@ using DatabaseBuddy.Core.Attributes;
 using DatabaseBuddy.Core.DatabaseExtender;
 using DatabaseBuddy.Core.Extender;
 using DatabaseBuddy.Entities;
-using DatabaseBuddy.View.DataElements;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
@@ -58,6 +57,7 @@ namespace DatabaseBuddy.ViewModel
         private MetroWindow MetroWnd;
         private string m_DBFilter;
         private static long m_MaxLogSize;
+        private double m_ScalingValue = 1;
         #endregion
 
         #region [Ctor]
@@ -66,7 +66,14 @@ namespace DatabaseBuddy.ViewModel
             ThemeManager.Current.ChangeTheme(Application.Current, "Light.Blue");
 
             if (Application.Current.MainWindow is MetroWindow tmpMetroWindow)
+            {
                 MetroWnd = tmpMetroWindow;
+                //if (MetroWnd.Name.IsNullOrEmpty())
+                //    MetroWnd.Name = nameof(DatabaseBuddy);
+                //MetroWnd.InputBindings.Add(new KeyBinding(IncreaseScaling, Key.OemPlus, ModifierKeys.Control));
+                //MetroWnd.InputBindings.Add(new KeyBinding(DecreaseScaling, Key.OemMinus, ModifierKeys.Control));
+                //MetroWnd.InputBindings.Add(new KeyBinding(ResetScaling, Key.D0, ModifierKeys.Control));
+            }
             __GetRegistryValues();
             __InitializeCommands();
             __GetExtendedDBInformations();
@@ -113,6 +120,9 @@ namespace DatabaseBuddy.ViewModel
         public ICommand ChangeTheme { get; set; }
         public ICommand RestartSQLServerInstance { get; set; }
         public ICommand RestartAsAdmin { get; set; }
+        public ICommand IncreaseScaling { get; set; }
+        public ICommand DecreaseScaling { get; set; }
+        public ICommand ResetScaling { get; set; }
 
         #endregion
 
@@ -410,6 +420,24 @@ namespace DatabaseBuddy.ViewModel
             {
                 m_MaxLogSize = value;
                 __WriteRegistryValue(nameof(MaxLogSize), m_MaxLogSize.ToString());
+            }
+        }
+
+        public double ScalingValue
+        {
+            get
+            {
+                return m_ScalingValue;
+            }
+            set
+            {
+                if (value <= 0.1)
+                    return;
+                m_ScalingValue = value;
+                __WriteRegistryValue(nameof(ScalingValue), value.ToString());
+                MetroWnd.LayoutTransform = new ScaleTransform(value, value);
+                MetroWnd.Title = value == 1 ? $"{nameof(DatabaseBuddy)}" : $"{nameof(DatabaseBuddy)} {(value * 100).ToInt32Value()}%";
+                OnPropertyChanged(nameof(ScalingValue));
             }
         }
 
@@ -1086,6 +1114,18 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region [Execute_IncreaseScaling]
+        public void Execute_IncreaseScaling(object obj = null) => ScalingValue += 0.1;
+        #endregion
+
+        #region [Execute_DecreaseScaling]
+        public void Execute_DecreaseScaling(object obj = null) => ScalingValue -= 0.1;
+        #endregion
+
+        #region [Execute_ResetScaling]
+        public void Execute_ResetScaling(object obj = null) => ScalingValue = 1;
+        #endregion
+
         #region - public methods -
         #region [GetRegistryValue]
         public static string GetRegistryValue(string key)
@@ -1137,6 +1177,7 @@ namespace DatabaseBuddy.ViewModel
             m_MSSQLStudioPath = GetRegistryValue(nameof(m_MSSQLStudioPath));
             IntegratedSecurity = GetRegistryValue(nameof(IntegratedSecurity)).ToBooleanValue();
             m_MaxLogSize = GetRegistryValue(nameof(MaxLogSize)).ToLongValue();
+            ScalingValue = GetRegistryValue(nameof(ScalingValue)).ToDoubleValue();
         }
         #endregion
 
@@ -2004,6 +2045,9 @@ CREATE DATABASE [{Entry.CloneName}]
             ChangeBaseTheme = new DelegateCommand<object>(Execute_ChangeBaseTheme);
             RestartSQLServerInstance = new DelegateCommand<object>(Execute_RestartService);
             RestartAsAdmin = new DelegateCommand<object>(Execute_RestartAsAdmin);
+            IncreaseScaling = new DelegateCommand<object>(Execute_IncreaseScaling);
+            DecreaseScaling = new DelegateCommand<object>(Execute_DecreaseScaling);
+            ResetScaling = new DelegateCommand<object>(Execute_ResetScaling);
         }
         #endregion
 

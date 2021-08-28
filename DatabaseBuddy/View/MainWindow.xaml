@@ -13,6 +13,11 @@
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         Loaded="__WindowLoaded_Start">
+    <mah:MetroWindow.InputBindings>
+        <KeyBinding Modifiers="Ctrl" Key="OemPlus" Command="{Binding IncreaseScaling}"/>
+        <KeyBinding Modifiers="Ctrl" Key="OemMinus" Command="{Binding DecreaseScaling}"/>
+        <KeyBinding Modifiers="Ctrl" Key="D0" Command="{Binding ResetScaling}"/>
+    </mah:MetroWindow.InputBindings>
     <mah:MetroWindow.Resources>
         <local:Forms x:Key="Images" />
     </mah:MetroWindow.Resources>

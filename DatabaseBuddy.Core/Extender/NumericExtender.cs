@@ -31,6 +31,10 @@ namespace DatabaseBuddy.Core.Extender
             return ToLongValue(Value, 0);
         }
 
+        public static double ToDoubleValue(this object Value)
+        {
+            return Convert.ToDouble(Value);
+        }
         public static int ToInt32Value(this object Value, int DefaultValue = 0)
         {
             if (Value == null || DBNull.Value == Value)
