@@ -236,14 +236,6 @@
                              CommandParameter="{Binding}"
                              IsEnabled="{Binding CanDBRestore}"
                              Margin="0 0 10 0"/>
-                            <Button Content="Monitor DB Log Size"
-                               Background="{Binding TrackedFilesBrush}"
-                             Command="{Binding DataContext.StartMonitoring,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             CommandParameter="{Binding}"
-                             Visibility="{Binding DataContext.FileMonitoringVisibility,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             Margin="0 0 10 0"/>
                             <Label Content="{Binding TrackedFileState}"
                               Margin="0 0 10 0"
                               Visibility="{Binding DataContext.FileMonitoringVisibility,
@@ -417,6 +409,19 @@
                                 <RowDefinition />
                                 <RowDefinition />
                             </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                          
+                            <Label Content="Max log size (MB)"
+                                   Grid.Row="0"
+                                   Grid.Column="0"/>
+                            <mah:NumericUpDown Grid.Row="0" 
+                                               Grid.Column="1"
+                                               Minimum="0"
+                                               Maximum="100000000"
+                                               Value="{Binding MaxLogSize, Mode=TwoWay}"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="Visual">
