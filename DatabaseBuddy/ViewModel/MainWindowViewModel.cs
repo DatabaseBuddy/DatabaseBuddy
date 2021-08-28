@@ -68,11 +68,6 @@ namespace DatabaseBuddy.ViewModel
             if (Application.Current.MainWindow is MetroWindow tmpMetroWindow)
             {
                 MetroWnd = tmpMetroWindow;
-                //if (MetroWnd.Name.IsNullOrEmpty())
-                //    MetroWnd.Name = nameof(DatabaseBuddy);
-                //MetroWnd.InputBindings.Add(new KeyBinding(IncreaseScaling, Key.OemPlus, ModifierKeys.Control));
-                //MetroWnd.InputBindings.Add(new KeyBinding(DecreaseScaling, Key.OemMinus, ModifierKeys.Control));
-                //MetroWnd.InputBindings.Add(new KeyBinding(ResetScaling, Key.D0, ModifierKeys.Control));
             }
             __GetRegistryValues();
             __InitializeCommands();
