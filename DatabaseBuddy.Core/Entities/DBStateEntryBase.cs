@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DatabaseBuddy.Core.Extender;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -75,7 +76,7 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [CutLogfileText]
-    public string CutLogfileText => $"Cut Log Size: {LDFSize} MB";
+    public string CutLogfileText => $"Cut Log Size: {LDFSize.ToMegabyte()} MB";
     #endregion
 
     #region [RestrictedRights]
@@ -103,11 +104,11 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [DataBaseSize]
-    public long DataBaseSize => MDFSize + LDFSize;
+    public long DataBaseSize => MDFSize.ToMegabyte() + LDFSize.ToMegabyte();
     #endregion
 
     #region [InformationString]
-    public string InformationString => $"Name: {DBName}\nData File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize} MB" +
+    public string InformationString => $"Name: {DBName}\nData File: {MDFSize.ToMegabyte()} MB \nLog Size: {LDFSize.ToMegabyte()} MB \nSum: {DataBaseSize} MB" +
             $"\nData Location: {MDFLocation} \nLog Location: {LDFLocation}";
     #endregion
 
