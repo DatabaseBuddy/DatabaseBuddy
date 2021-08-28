@@ -91,11 +91,6 @@
                          Content="Select All"
                          Command="{Binding SelectAll}"
                          Margin="0 0 10 0"/>
-                <Button HorizontalContentAlignment="Left"
-                         Height="22"
-                         Content="Filesize Monitoring"
-                         Command="{Binding SwitchTracking}"
-                         Margin="0 0 10 0"/>
                 <StackPanel Orientation="Horizontal"
                     Margin="0 0 10 0"
                     Visibility="{Binding IsAdmin}">
@@ -237,9 +232,7 @@
                              IsEnabled="{Binding CanDBRestore}"
                              Margin="0 0 10 0"/>
                             <Label Content="{Binding TrackedFileState}"
-                              Margin="0 0 10 0"
-                              Visibility="{Binding DataContext.FileMonitoringVisibility,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"/>
+                              Margin="0 0 10 0"/>
                         </StackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

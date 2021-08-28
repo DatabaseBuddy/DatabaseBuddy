@@ -126,10 +126,6 @@ namespace DatabaseBuddy.Core.Entities
     }
     #endregion
 
-    #region [IsTracked]
-    public bool IsTracked { get; set; }
-    #endregion
-
     #endregion
 
     #region - methods -

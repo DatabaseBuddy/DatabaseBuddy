@@ -1,10 +1,7 @@
 ﻿using DatabaseBuddy.Core.Entities;
 using DatabaseBuddy.Core.Extender;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
-using System.Windows.Media;
 
 namespace DatabaseBuddy.Entities
 {
@@ -20,33 +17,16 @@ namespace DatabaseBuddy.Entities
         #region - properties -
         #region - public properties -
         public Visibility WarningVisible => IsSystemDatabase ? Visibility.Visible : Visibility.Hidden;
-        //public Brush TrackedFilesBrush => TrackedFiles.Any() ? Brushes.Green : Brushes.Red;
-
-        public string TrackedFileState
-        {
-            get
-            {
-                if (IsTracked)
-                  return $"Current Log Size {LDFSize.ToMegabyte()} MB";
-                else return "";
-            }
-        }
+        public string TrackedFileState => $"Current Log Size {LDFSize.ToMegabyte()} MB";
         #endregion
 
         #region - private methods -
 
-        #region [__IsBackupValid]
-        private bool __IsBackupValid()
-        {
-            return DateTime.TryParse(LastBackupTime, out DateTime tryout);
-        }
-    #endregion
-
         #endregion
 
         #endregion
-  }
-  public enum eDATABASESTATE
+    }
+    public enum eDATABASESTATE
     {
         OFFLINE,
         ONLINE,

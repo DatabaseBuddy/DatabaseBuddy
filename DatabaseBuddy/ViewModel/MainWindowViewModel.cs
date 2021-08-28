@@ -60,7 +60,6 @@ namespace DatabaseBuddy.ViewModel
         private long m_MaxLogSize;
         #endregion
 
-
         #region [Ctor]
         public MainWindowViewModel()
         {
@@ -89,7 +88,6 @@ namespace DatabaseBuddy.ViewModel
         public ICommand ShowSystemDatabases { get; set; }
         public ICommand SwitchMultiMode { get; set; }
         public ICommand SelectAll { get; set; }
-        public ICommand SwitchTracking { get; set; }
         public ICommand Reconnect { get; set; }
         public ICommand GotLbFocus { get; set; }
         public ICommand DeleteSelectedDataBase { get; set; }
@@ -136,6 +134,19 @@ namespace DatabaseBuddy.ViewModel
                     ListBoxDbs.ItemsSource = DBEntries;
                 else
                     ListBoxDbs.ItemsSource = DBEntries.Where(x => x.DBName.Contains(value.ToString(), StringComparison.InvariantCultureIgnoreCase));
+            }
+        }
+
+        public bool FileTrackingEnabled
+        {
+            get
+            {
+                return m_FileTrackingEnabled;
+            }
+            set
+            {
+                m_FileTrackingEnabled = value;
+                OnPropertyChanged(nameof(FileMonitoringVisibility));
             }
         }
 
@@ -270,7 +281,7 @@ namespace DatabaseBuddy.ViewModel
       ? Visibility.Collapsed : Visibility.Visible;
 
         [DependsUpon(nameof(m_FileTrackingEnabled))]
-        public Visibility FileMonitoringVisibility => m_FileTrackingEnabled ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility FileMonitoringVisibility => FileTrackingEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         [DependsUpon(nameof(MultiMode))]
         public string MultiModeToggleCaption => MultiMode ? "MULTIMODE ON" : "MULTIMODE OFF";
@@ -915,24 +926,6 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
-        #region [Execute_SwitchTracking]
-        public void Execute_SwitchTracking(object obj = null)
-        {
-            try
-            {
-                m_FileTrackingEnabled = !m_FileTrackingEnabled;
-                Execute_Reload();
-                foreach (var item in DBEntries)
-                  item.IsTracked = m_FileTrackingEnabled;
-                __WriteRegistryValue("EnableFileSizeMonitoring", m_FileTrackingEnabled ? "1" : "0");
-            }
-            catch (Exception ex)
-            {
-                __ThrowMessage($"{nameof(Execute_SwitchTracking)} failed!", ex.ToString());
-            }
-        }
-        #endregion
-
         #region [CanExecute_Reconnect]
         public bool CanExecute_Reconnect()
         {
@@ -967,7 +960,7 @@ namespace DatabaseBuddy.ViewModel
         public void Execute_StartMonitoring(object DatabaseEntry)
         {
             __ThrowMessage($"{nameof(Execute_StartMonitoring)} failed.", "The method is not yet implemented.");
-            
+
         }
 
         #endregion
@@ -1139,7 +1132,7 @@ namespace DatabaseBuddy.ViewModel
             UserName = GetRegistryValue(nameof(UserName));
             Password = GetRegistryValue(nameof(Password));
             m_ShowSystemDatabases = GetRegistryValue(nameof(ShowSystemDatabases)).ToBooleanValue();
-            m_FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
+            FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
             m_ScheduleActivated = GetRegistryValue("EnabledSchedule").ToBooleanValue();
             m_MSSQLStudioPath = GetRegistryValue(nameof(m_MSSQLStudioPath));
             IntegratedSecurity = GetRegistryValue(nameof(IntegratedSecurity)).ToBooleanValue();
@@ -1987,7 +1980,6 @@ CREATE DATABASE [{Entry.CloneName}]
             ShowSystemDatabases = new DelegateCommand<object>(Execute_ShowSystemDatabases);
             SwitchMultiMode = new DelegateCommand<object>(Execute_SwitchMultiMode);
             SelectAll = new DelegateCommand<object>(Execute_SelectAll);
-            SwitchTracking = new DelegateCommand<object>(Execute_SwitchTracking);
             Reconnect = new DelegateCommand<object>(Execute_Reconnect);
             GotLbFocus = new DelegateCommand<object>(Execute_GotLbFocus);
             DeleteSelectedDataBase = new DelegateCommand<object>(Execute_DeleteSelectedDataBase);
