@@ -49,5 +49,9 @@ namespace DatabaseBuddy.Core.Extender
             }
             catch { return DefaultValue; }
         }
+        public static long ToMegabyte(this long Value)
+            => (long)(Value / Math.Pow(10, 6));
+        public static long ToByte(this long Value)
+            => (long)(Value * Math.Pow(10, 6));
     }
 }

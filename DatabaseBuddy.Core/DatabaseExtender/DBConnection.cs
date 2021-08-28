@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DatabaseBuddy.Core.Extender;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 
@@ -13,6 +14,7 @@ namespace DatabaseBuddy.Core.DatabaseExtender
         private string m_DatabaseName;
         private string m_Username;
         private string m_Password;
+        private bool m_IntegratedSecurity;
         public event EventHandler ConnectionFailed;
 
         public DBConnection(string ServerName, string DatabaseName,
@@ -24,19 +26,30 @@ namespace DatabaseBuddy.Core.DatabaseExtender
             m_Password = Password;
             __GetConnection();
         }
+
+        public DBConnection(string ServerName, string DatabaseName, bool IntegratedSecurity)
+        {
+            m_ServerName = ServerName;
+            m_DatabaseName = DatabaseName;
+            m_IntegratedSecurity = IntegratedSecurity;
+            __GetConnection();
+        }
         #region GetConnection
         private SqlConnection __GetConnection()
         {
-
-            m_Connection = new SqlConnection(
-                new SqlConnectionStringBuilder
-                {
-                    DataSource = m_ServerName,
-                    InitialCatalog = m_DatabaseName,
-                    //UserID = m_Username,
-                    //Password = m_Password,
-                    IntegratedSecurity = true, //TODO: TASK: Get Credentials from Login Dialog / Settings Dialog Integrated or Username etc
-                }.ToString());
+            var SqlConnBuilder = new SqlConnectionStringBuilder
+            {
+                DataSource = m_ServerName,
+                InitialCatalog = m_DatabaseName,
+            };
+            if (!m_IntegratedSecurity)
+            {
+                SqlConnBuilder.UserID = m_Username;
+                SqlConnBuilder.Password = m_Password;
+            }
+            else
+                SqlConnBuilder.IntegratedSecurity = true;
+            m_Connection = new SqlConnection(SqlConnBuilder.ToString());
             return m_Connection;
         }
         #endregion
@@ -132,7 +145,7 @@ namespace DatabaseBuddy.Core.DatabaseExtender
         {
             if (ex is SqlException SqlEx)
             {
-                ConnectionFailed?.Invoke(this, new EventArgs());
+                ConnectionFailed?.Invoke(SqlEx, new EventArgs());
             }
         }
 

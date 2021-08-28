@@ -1,26 +1,27 @@
-﻿using ASquare.WindowsTaskScheduler;
+﻿using ControlzEx.Theming;
 using DatabaseBuddy.Core;
 using DatabaseBuddy.Core.Attributes;
 using DatabaseBuddy.Core.DatabaseExtender;
 using DatabaseBuddy.Core.Extender;
-using DatabaseBuddy.Dialogs;
 using DatabaseBuddy.Entities;
+using DatabaseBuddy.View.DataElements;
+using MahApps.Metro.Controls;
+using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
-using Övervakning.Shared.Entities;
-using Övervakning.Shared.Enums;
-using Övervakning.Shared.Helper;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Principal;
-using System.Text;
+using System.ServiceProcess;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace DatabaseBuddy.ViewModel
 {
@@ -30,36 +31,63 @@ namespace DatabaseBuddy.ViewModel
         private List<string> m_systemDataBases;
         private List<string> m_UnusedFiles;
         private string m_Server = "localhost";
-        private readonly string m_User; //TODO: TASK:  Replace via Login Dialog
-        private readonly string m_Password; //TODO: TASK: Replace via Login Dialog
+        private string m_UserName;
+        private string m_Password;
         private const string ODBC32BitRegPath = @"SOFTWARE\WOW6432Node\ODBC\ODBC.INI";
         private string m_MSSQLStudioPath;
         private DBConnection m_db;
         private string m_DNSName = string.Empty;
         private string m_DNSBase = "{0}_{1}";
 
-        private string m_TrackingMaxFileSizeInput;
-        private DBStateEntry m_TrackingDBStateEntry;
+        private string m_DefaultDataPath;
+        private string m_InstanceName;
 
         private bool m_ShowSystemDatabases;
         private bool m_FileTrackingEnabled;
         private bool m_ScheduleActivated;
-        private List<Entry> m_TrackedFiles;
-        bool skipReload;
+        private bool skipReload;
         private DBStateEntry m_SelectedDB;
         private List<DBStateEntry> m_DBEntries;
         private ListBox m_ListBoxDbs;
         private bool m_IsBusy;
         private bool m_MultiMode;
+        private bool m_SettingsOpen;
+        private bool m_IntegratedSecurity;
+        private string m_BaseTheme = "Light";
+        private string m_SelectedTheme = "Blue";
+        private MetroWindow MetroWnd;
+        private string m_DBFilter;
+        private static long m_MaxLogSize;
         #endregion
 
-        #region [Icommands]
+        #region [Ctor]
+        public MainWindowViewModel()
+        {
+            ThemeManager.Current.ChangeTheme(Application.Current, "Light.Blue");
+
+            if (Application.Current.MainWindow is MetroWindow tmpMetroWindow)
+                MetroWnd = tmpMetroWindow;
+            __GetRegistryValues();
+            __InitializeCommands();
+            __GetExtendedDBInformations();
+            m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
+            UnusedFiles = new List<string>();
+            if (m_MSSQLStudioPath.IsNullOrEmpty())
+                __GetMSSQLStudioPath();
+
+            __HandleTheming();
+            skipReload = false;
+            Execute_Reload();
+        }
+
+        #endregion
+
+        #region [Commands]
         public ICommand Reload { get; set; }
         public ICommand CreateNewDatabase { get; set; }
         public ICommand ShowSystemDatabases { get; set; }
         public ICommand SwitchMultiMode { get; set; }
         public ICommand SelectAll { get; set; }
-        public ICommand SwitchTracking { get; set; }
         public ICommand Reconnect { get; set; }
         public ICommand GotLbFocus { get; set; }
         public ICommand DeleteSelectedDataBase { get; set; }
@@ -80,31 +108,90 @@ namespace DatabaseBuddy.ViewModel
         public ICommand RestoreAll { get; set; }
         public ICommand DeleteUnusedFiles { get; set; }
         public ICommand RestoreMultipleBaks { get; set; }
+        public ICommand ToggleSettings { get; set; }
+        public ICommand ChangeBaseTheme { get; set; }
+        public ICommand ChangeTheme { get; set; }
+        public ICommand RestartSQLServerInstance { get; set; }
+        public ICommand RestartAsAdmin { get; set; }
 
-
-        #endregion
-
-        #region [Ctor]
-        public MainWindowViewModel()
-        {
-            __InitializeCommands();
-            m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
-            UnusedFiles = new List<string>();
-            __GetMSSQLStudioPath();
-            m_ShowSystemDatabases = GetRegistryValue("ShowSystemDatabases").ToBooleanValue();
-            m_FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
-            m_ScheduleActivated = GetRegistryValue("EnabledSchedule").ToBooleanValue();
-            ServerName = GetRegistryValue(nameof(ServerName));
-            __HandleFileTrackingNeeds();
-            skipReload = false;
-            Execute_Reload();
-        }
         #endregion
 
         #region - properties -
+
         #region - public properties -
+
+        public string DBFilter
+        {
+            get
+            {
+                return m_DBFilter;
+            }
+            set
+            {
+                m_DBFilter = value;
+                ListBoxDbs.ItemsSource = null;
+                if (value.IsNullOrEmpty())
+                    ListBoxDbs.ItemsSource = DBEntries;
+                else
+                    ListBoxDbs.ItemsSource = DBEntries.Where(x => x.DBName.Contains(value.ToString(), StringComparison.InvariantCultureIgnoreCase));
+            }
+        }
+
+        public bool FileTrackingEnabled
+        {
+            get
+            {
+                return m_FileTrackingEnabled;
+            }
+            set
+            {
+                m_FileTrackingEnabled = value;
+                OnPropertyChanged(nameof(FileMonitoringVisibility));
+            }
+        }
+
         [DependsUpon(nameof(ServerName))]
-        public string SystemInformation => $"{__GetVersion()} Server: {m_Server} User: {m_User}";
+        public string SystemInformation
+        {
+            get
+            {
+                if (!IntegratedSecurity)
+                    return $"{__GetVersion()} Server: {m_Server} User: {m_UserName}";
+                else
+                    return $"{__GetVersion()} Server: {m_Server} Integrated Security";
+            }
+        }
+
+        public bool BaseThemeToggled
+        {
+            get
+            {
+                if (m_BaseTheme.IsNullOrEmpty())
+                    return false;
+                return !m_BaseTheme.Equals(ThemeManager.BaseColorLight);
+            }
+        }
+
+        public bool SystemDataBasesToggled
+        {
+            get
+            {
+                return m_ShowSystemDatabases;
+            }
+        }
+
+        public bool SettingsOpen
+        {
+            get
+            {
+                return m_SettingsOpen;
+            }
+            set
+            {
+                m_SettingsOpen = value;
+                OnPropertyChanged(nameof(SettingsOpen));
+            }
+        }
 
         public bool MultiMode
         {
@@ -116,6 +203,9 @@ namespace DatabaseBuddy.ViewModel
             {
                 m_MultiMode = value;
                 OnPropertyChanged(nameof(MultiMode));
+                OnPropertyChanged(nameof(ListBoxSelectionMode));
+                OnPropertyChanged(nameof(MultiModeToggleCaption));
+                OnPropertyChanged(nameof(SelectAllVisibility));
             }
         }
 
@@ -129,6 +219,7 @@ namespace DatabaseBuddy.ViewModel
                 if (value != null)
                     m_UnusedFiles = value;
                 OnPropertyChanged(nameof(UnusedFiles));
+                OnPropertyChanged(nameof(DeleteUnusedFilesCaption));
             }
         }
 
@@ -155,7 +246,7 @@ namespace DatabaseBuddy.ViewModel
         }
 
         [DependsUpon(nameof(SelectedDB))]
-        public bool RestrictedRights => !SelectedDB?.IsSystemDataBase ?? false;
+        public bool RestrictedRights => !SelectedDB?.IsSystemDatabase ?? false;
 
         public ListBox ListBoxDbs
         {
@@ -190,7 +281,7 @@ namespace DatabaseBuddy.ViewModel
       ? Visibility.Collapsed : Visibility.Visible;
 
         [DependsUpon(nameof(m_FileTrackingEnabled))]
-        public Visibility FileMonitoringVisibility => m_FileTrackingEnabled ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility FileMonitoringVisibility => FileTrackingEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         [DependsUpon(nameof(MultiMode))]
         public string MultiModeToggleCaption => MultiMode ? "MULTIMODE ON" : "MULTIMODE OFF";
@@ -203,16 +294,44 @@ namespace DatabaseBuddy.ViewModel
                 {
                     if (m_db == null)
                     {
-                        m_db = new DBConnection(ServerName, "master", m_User, m_Password);
+                        if (UserName.IsNullOrEmpty() || m_Password.IsNullOrEmpty())
+                            IntegratedSecurity = true;
+                        if (IntegratedSecurity)
+                            m_db = new DBConnection(ServerName, "master", true);
+                        else
+                            m_db = new DBConnection(ServerName, "master", m_UserName, m_Password);
                         m_db.ConnectionFailed += __ResetInvalidConnection;
                     }
-                    return m_db;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-
-                    throw;
+                    __ThrowMessage($"{nameof(Db)} failed!", ex.ToString());
                 }
+                return m_db;
+            }
+        }
+
+        public Visibility CredentialsVisibility
+        {
+            get
+            {
+                return IntegratedSecurity ? Visibility.Collapsed : Visibility.Visible;
+            }
+        }
+
+        public bool IntegratedSecurity
+        {
+            get
+            {
+                return m_IntegratedSecurity;
+            }
+            set
+            {
+                m_IntegratedSecurity = value;
+                OnPropertyChanged(nameof(IntegratedSecurity));
+                __WriteRegistryValue(nameof(IntegratedSecurity), value ? "1" : "0");
+                OnPropertyChanged(nameof(CredentialsVisibility));
+                OnPropertyChanged(nameof(SystemInformation));
             }
         }
 
@@ -224,10 +343,73 @@ namespace DatabaseBuddy.ViewModel
             }
             set
             {
-                var TrimmedValue = value?.Trim();
-                m_Server = TrimmedValue.IsNotNullOrEmpty() ? TrimmedValue : "localhost";
+                m_Server = value?.Trim() ?? "localhost";
                 OnPropertyChanged(nameof(ServerName));
                 OnPropertyChanged(nameof(SystemInformation));
+            }
+        }
+
+        public string UserName
+        {
+            get
+            {
+                return m_UserName;
+            }
+            set
+            {
+                m_UserName = value;
+                OnPropertyChanged(nameof(UserName));
+                OnPropertyChanged(nameof(SystemInformation));
+            }
+        }
+
+        public string Password
+        {
+            get
+            {
+                return m_Password;
+            }
+            set
+            {
+                m_Password = value;
+                OnPropertyChanged(nameof(Password));
+            }
+        }
+
+        public ObservableCollection<string> Themes
+        {
+            get
+            {
+                return __GetThemeCboItems();
+            }
+        }
+
+        public string SelectedTheme
+        {
+            get
+            {
+                return m_SelectedTheme;
+            }
+            set
+            {
+                if (value.IsNullOrEmpty())
+                    return;
+                m_SelectedTheme = value;
+                Execute_ChangeTheme();
+                OnPropertyChanged(nameof(SelectedTheme));
+            }
+        }
+
+        public static long MaxLogSize
+        {
+            get
+            {
+                return m_MaxLogSize;
+            }
+            set
+            {
+                m_MaxLogSize = value;
+                __WriteRegistryValue(nameof(MaxLogSize), m_MaxLogSize.ToString());
             }
         }
 
@@ -256,10 +438,11 @@ namespace DatabaseBuddy.ViewModel
                         var DataBaseEntries = new List<DBStateEntry> { State };
                         var Messagetext = $"Are you sure to take offline the following databases?\n";
                         DataBaseEntries.ForEach(x => Messagetext += $"-{x.DBName}\n");
-                        var KillResult = MessageBox.Show(Messagetext, "Confirm taking offline", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                        if (KillResult == MessageBoxResult.No)
+                        var KillResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm taking offline", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                        if (KillResult == MessageDialogResult.Canceled || KillResult == MessageDialogResult.Negative)
                             return;
-                        __KillConnections(DataBaseEntries);
+                        else if (KillResult == MessageDialogResult.Affirmative)
+                            __KillConnections(DataBaseEntries);
                     }
                     else
                         __ActivateConnections(new List<DBStateEntry> { State });
@@ -267,7 +450,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
-
+                __ThrowMessage($"{nameof(Execute_TakeSelectedOffline)} failed!", ex.ToString());
             }
             finally
             {
@@ -286,6 +469,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_OpenQuery)} failed!", ex.ToString());
             }
 
         }
@@ -310,6 +494,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_GenerateODBCEntry)} failed!", ex.ToString());
             }
 
         }
@@ -322,14 +507,15 @@ namespace DatabaseBuddy.ViewModel
             {
                 var DataBaseEntries = __LoadDataBases(eDATABASESTATE.ONLINE);
                 var Messagetext = $"Are you sure to take offline the following databases?\n";
-                DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
-                var KillResult = MessageBox.Show(Messagetext, "Confirm taking offline", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (KillResult == MessageBoxResult.No)
+                DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
+                var KillResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm taking offline", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
+                if (KillResult == MessageDialogResult.Canceled || KillResult == MessageDialogResult.Negative)
                     return;
-                __KillConnections(DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList());
+                __KillConnections(DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList());
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_TakeAllOffline)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -343,6 +529,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_TakeAllOnline)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -365,6 +552,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_DeleteSelectedDataBase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -380,6 +568,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_GotFocus)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -394,6 +583,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_GotLbFocus)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -413,6 +603,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_BackupAll)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -435,6 +626,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RestoreBackup)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -455,6 +647,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_BackupSelectedDataBase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -474,6 +667,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RestoreAll)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -483,35 +677,28 @@ namespace DatabaseBuddy.ViewModel
         {
             try
             {
-                if (skipReload)
+                if (skipReload && obj == null)
                     return;
-                //DBEntries.Clear();
                 Db.ExecuteScalar("USE [master] SELECT TOP (1) xserver_name FROM [master].[dbo].[spt_fallback_db]");
                 __ReloadDBs();
                 __GetUnusedDataBaseFiles();
                 __SetMultiMode(false);
-                __AssignTrackedFiles();
                 __AssignGeneralProps();
                 if (ListBoxDbs != null)
                 {
                     ListBoxDbs.ItemsSource = null;
                     ListBoxDbs.ItemsSource = DBEntries;
+                    var tmpFilterValue = DBFilter;
+                    DBFilter = tmpFilterValue;
                 }
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_Reload)} failed!", ex.ToString());
                 __ResetInvalidConnection(this, new EventArgs());
-                //_ = MessageBox.Show(ex.ToString()/*"Datenbankverbindung fehlgeschlagen"*/, "Verbindung nicht möglich");
             }
         }
 
-        private void __ResetInvalidConnection(object sender, EventArgs e)
-        {
-            skipReload = true;
-            ServerName = GetRegistryValue(nameof(ServerName));
-            m_db = null;
-            Execute_Reload();
-        }
         #endregion
 
         #region [Execute_DeleteUnusedFiles]
@@ -523,8 +710,8 @@ namespace DatabaseBuddy.ViewModel
                     return;
                 var Messagetext = $"Are you sure to delete the following {UnusedFiles.Count} unused Files?\n";
                 UnusedFiles.ForEach(x => Messagetext += $"-{x}\n");
-                var DeleteResult = MessageBox.Show(Messagetext, "Confirm delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (DeleteResult == MessageBoxResult.No)
+                var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                if (DeleteResult == MessageDialogResult.Canceled || DeleteResult == MessageDialogResult.Negative)
                     return;
                 else
                 {
@@ -534,6 +721,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_DeleteUnusedFiles)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -554,6 +742,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_OpenFolder)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -600,6 +789,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_OpenLastBackupFolder)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -655,6 +845,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RestoreMultipleBaks)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -680,13 +871,12 @@ namespace DatabaseBuddy.ViewModel
                     __RunCloneDataBase(SelectedDbs);
                 else if (SelectedDB != null)
                 {
-                    var Wnd = new InputBox("Choose Clone name", "Please type a name for the clone");
-                    Wnd.OkRequested += __Clone_InputBox_OkRequested;
-                    Wnd.ShowDialog();
+                    __RunCloneDatabaseWithAnyName(new List<DBStateEntry> { SelectedDB });
                 }
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_CloneDataBase)} failed!", ex.ToString());
             }
         }
 
@@ -701,6 +891,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_SwitchMultiMode)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -710,12 +901,11 @@ namespace DatabaseBuddy.ViewModel
         {
             try
             {
-                var Wnd = new InputBox("New database name", "Please enter your new database name");
-                Wnd.OkRequested += __RunCreateNewDataBase;
-                Wnd.ShowDialog();
+                __RunCreateNewDataBase();
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_CreateNewDatabase)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -727,27 +917,19 @@ namespace DatabaseBuddy.ViewModel
             {
                 m_ShowSystemDatabases = !m_ShowSystemDatabases;
                 Execute_Reload();
-                __WriteRegistryValue("ShowSystemDatabases", m_ShowSystemDatabases ? "1" : "0");
+                __WriteRegistryValue(nameof(ShowSystemDatabases), m_ShowSystemDatabases ? "1" : "0");
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_ShowSystemDatabases)} failed!", ex.ToString());
             }
         }
         #endregion
 
-        #region [Execute_SwitchTracking]
-        public void Execute_SwitchTracking(object obj = null)
+        #region [CanExecute_Reconnect]
+        public bool CanExecute_Reconnect()
         {
-            try
-            {
-                m_FileTrackingEnabled = !m_FileTrackingEnabled;
-                __ActivateTaskScheduler();
-                Execute_Reload();
-                __WriteRegistryValue("EnableFileSizeMonitoring", m_FileTrackingEnabled ? "1" : "0");
-            }
-            catch (Exception ex)
-            {
-            }
+            return __CanExecute_Common() && ServerName.IsNotNullOrEmpty() && ((UserName.IsNotNullOrEmpty() && Password.IsNotNullOrEmpty()) || IntegratedSecurity);
         }
         #endregion
 
@@ -756,12 +938,19 @@ namespace DatabaseBuddy.ViewModel
         {
             try
             {
+                if (ServerName.IsNullOrEmpty())
+                    ServerName = "localhost";
+                if (UserName.IsNotNullOrEmpty())
+                    __WriteRegistryValue(nameof(UserName), UserName);
+                if (Password.IsNotNullOrEmpty())
+                    __WriteRegistryValue(nameof(Password), Password);
                 m_db = null;
                 skipReload = false;
                 Execute_Reload();
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_Reconnect)} failed!", ex.ToString());
                 __ResetInvalidConnection(this, new EventArgs());
             }
         }
@@ -770,27 +959,8 @@ namespace DatabaseBuddy.ViewModel
         #region [Execute_StartMonitoring]
         public void Execute_StartMonitoring(object DatabaseEntry)
         {
-            try
-            {
-                if (DatabaseEntry is DBStateEntry DBEntry)
-                    m_TrackingDBStateEntry = DBEntry;
-                if (m_TrackingDBStateEntry != null && m_TrackingDBStateEntry.TrackedFiles.Any())
-                {
-                    var DeleteTrackingResult = MessageBox.Show($"Are you sure to remove the File Monitoring for the {m_TrackingDBStateEntry.DBName} Database", "Remove File Monitoring", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (DeleteTrackingResult == MessageBoxResult.Yes)
-                    {
-                        __AssignTrackedFiles();
-                        __RemoveTrackedFiles();
-                    }
-                    return;
-                }
-                var MaxFileSizeBox = new InputBox("Max FileSize", "Enter Max Filesize");
-                MaxFileSizeBox.OkRequested += __MaxFileSizeBox_OkRequested;
-                MaxFileSizeBox.ShowDialog();
-            }
-            catch (Exception ex)
-            {
-            }
+            __ThrowMessage($"{nameof(Execute_StartMonitoring)} failed.", "The method is not yet implemented.");
+
         }
 
         #endregion
@@ -804,6 +974,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_SelectAll)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -819,6 +990,7 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_CutLogFile)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -834,16 +1006,169 @@ namespace DatabaseBuddy.ViewModel
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(Execute_RenameDatabase)} failed!", ex.ToString());
             }
         }
+        #endregion
+
+        #region [Execute_ToggleSettings]
+        public void Execute_ToggleSettings(object obj = null)
+        {
+            SettingsOpen = !SettingsOpen;
+        }
+        #endregion
+
+        #region [Execute_ChangeBaseTheme]
+        public void Execute_ChangeBaseTheme(object obj = null)
+        {
+            ThemeManager.Current.ChangeTheme(Application.Current, ThemeManager.Current.GetInverseTheme(ThemeManager.Current.GetTheme($"{m_BaseTheme}.{SelectedTheme}")));
+            m_BaseTheme = m_BaseTheme.Equals(ThemeManager.BaseColorLight) ? ThemeManager.BaseColorDark : ThemeManager.BaseColorLight;
+            __WriteRegistryValue(nameof(m_BaseTheme), m_BaseTheme);
+            OnPropertyChanged(nameof(BaseThemeToggled));
+        }
+        #endregion
+
+        #region [Execute_ChangeTheme]
+        public void Execute_ChangeTheme(object obj = null)
+        {
+            if (SelectedTheme.IsNullOrEmpty())
+                return;
+            ThemeManager.Current.ChangeThemeColorScheme(Application.Current, SelectedTheme);
+            __WriteRegistryValue(nameof(SelectedTheme), SelectedTheme);
+            OnPropertyChanged(nameof(SelectedTheme));
+        }
+        #endregion
+
+        #region [Execute_RestartService]
+        public void Execute_RestartService(object obj = null)
+        {
+            ServiceController service = new ServiceController(m_InstanceName);
+            try
+            {
+                int millisec1 = Environment.TickCount;
+                TimeSpan timeout = TimeSpan.FromMilliseconds(2000);
+
+                service.Stop();
+                service.WaitForStatus(ServiceControllerStatus.Stopped, timeout);
+
+                service.Start();
+                service.WaitForStatus(ServiceControllerStatus.Running, timeout);
+                DialogManager.ShowModalMessageExternal(MetroWnd, "Successful Restarted", $"SQL Server Instance '{m_InstanceName}' was restarted successful");
+            }
+            catch (Exception ex)
+            {
+                __ThrowMessage($"{nameof(Execute_RestartService)} failed!", ex.ToString());
+            }
+        }
+        #endregion
+
+        #region [Execute_RestartAsAdmin]
+        public void Execute_RestartAsAdmin(object obj = null)
+        {
+            try
+            {
+                var Location = Directory.GetParent(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)).Parent.Parent.FullName;
+                var Exe = Directory.GetFiles($"{Location}", $"{nameof(DatabaseBuddy)}.exe", SearchOption.AllDirectories);
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = Exe.First(),
+                    Arguments = string.Empty,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                Process.Start(startInfo);
+                Application.Current.Shutdown();
+            }
+            catch (Exception)
+            {
+                //Do Not Throw here
+            }
+        }
+        #endregion
+
+        #region - public methods -
+        #region [GetRegistryValue]
+        public static string GetRegistryValue(string key)
+        {
+            try
+            {
+                var BaseKey = Registry.CurrentUser.OpenSubKey("Software", true);
+                var Key = BaseKey.OpenSubKey(nameof(DatabaseBuddy), true);
+                if (Key == null)
+                    Key = BaseKey.CreateSubKey(nameof(DatabaseBuddy), true);
+
+                return Key.GetValue(key).ToStringValue();
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+        #endregion
         #endregion
 
         #endregion
 
         #region - private methods -
 
+        #region [__ResetInvalidConnection]
+        private void __ResetInvalidConnection(object sender, EventArgs e)
+        {
+            if (sender is SqlException SqlEx && SqlEx.Number == 5011)
+                return;
+            __ThrowMessage("Connection Failed", sender.ToString());
+            skipReload = true;
+            ServerName = GetRegistryValue(nameof(ServerName));
+            Password = string.Empty;
+            m_db = null;
+            Execute_Reload();
+        }
+        #endregion
+
+        #region [__GetRegistryValues]
+        private void __GetRegistryValues()
+        {
+            ServerName = GetRegistryValue(nameof(ServerName));
+            UserName = GetRegistryValue(nameof(UserName));
+            Password = GetRegistryValue(nameof(Password));
+            m_ShowSystemDatabases = GetRegistryValue(nameof(ShowSystemDatabases)).ToBooleanValue();
+            FileTrackingEnabled = GetRegistryValue("EnableFileSizeMonitoring").ToBooleanValue();
+            m_ScheduleActivated = GetRegistryValue("EnabledSchedule").ToBooleanValue();
+            m_MSSQLStudioPath = GetRegistryValue(nameof(m_MSSQLStudioPath));
+            IntegratedSecurity = GetRegistryValue(nameof(IntegratedSecurity)).ToBooleanValue();
+            m_MaxLogSize = GetRegistryValue(nameof(MaxLogSize)).ToLongValue();
+        }
+        #endregion
+
+        #region [__ThrowMessage]
+        private void __ThrowMessage(string Title, string Message)
+        {
+            (MetroWnd).ShowMessageAsync(Title, Message);
+            skipReload = false;
+        }
+        #endregion
+
+        #region [__HandleTheming]
+        private void __HandleTheming()
+        {
+            m_BaseTheme = GetRegistryValue(nameof(m_BaseTheme));
+            SelectedTheme = GetRegistryValue(nameof(SelectedTheme));
+            if (m_BaseTheme.IsNullOrEmpty() || SelectedTheme.IsNullOrEmpty())
+            {
+                __WriteRegistryValue(nameof(m_BaseTheme), ThemeManager.BaseColorLight);
+                __WriteRegistryValue(nameof(SelectedTheme), "Blue");
+            }
+            else
+            {
+                ThemeManager.Current.ChangeTheme(Application.Current, m_BaseTheme, SelectedTheme);
+                OnPropertyChanged(nameof(BaseThemeToggled));
+                OnPropertyChanged(nameof(SelectedTheme));
+            }
+        }
+        #endregion
+
         #region [__GetODBCEntries]
-        private string[] __GetODBCEntries() => Registry.LocalMachine.OpenSubKey(ODBC32BitRegPath).GetSubKeyNames();
+        private static string[] __GetODBCEntries() => Registry.LocalMachine.OpenSubKey(ODBC32BitRegPath).GetSubKeyNames();
         #endregion
 
         #region [__DeleteODBCEntries]
@@ -878,7 +1203,7 @@ namespace DatabaseBuddy.ViewModel
                 var SubKey = Key.CreateSubKey(m_DNSName);
                 SubKey.SetValue("Database", DBEntry.DBName);
                 SubKey.SetValue("Driver", @"C:\WINDOWS\system32\SQLSRV32.dll");
-                SubKey.SetValue("LastUser", m_User);
+                SubKey.SetValue("LastUser", m_UserName);
                 SubKey.SetValue("Server", ServerName);
             }
             Execute_Reload();
@@ -888,60 +1213,50 @@ namespace DatabaseBuddy.ViewModel
         #region [__MaxFileSizeBox_OkRequested]
         private void __MaxFileSizeBox_OkRequested(object sender, EventArgs e)
         {
-            m_TrackingMaxFileSizeInput = sender.ToString();
-            var FileSizeDimensionBox = new InputBox("File Size Dimension", "Please choose one of the following Dimensions: B, KB, MB, GB, TB, PB");
-            FileSizeDimensionBox.OkRequested += __FileSizeDimensionBox_OkRequested;
-            FileSizeDimensionBox.ShowDialog();
+            __ThrowMessage($"{nameof(__MaxFileSizeBox_OkRequested)} failed.", "The method is not yet implemented.");
+            //m_TrackingMaxFileSizeInput = sender.ToString();
+            //var FileSizeDimensionBox = new InputBox("File Size Dimension", "Please choose one of the following Dimensions: B, KB, MB, GB, TB, PB");
+            //FileSizeDimensionBox.OkRequested += __FileSizeDimensionBox_OkRequested;
+            //FileSizeDimensionBox.ShowDialog();
         }
         #endregion
 
         #region [__FileSizeDimensionBox_OkRequested]
         private void __FileSizeDimensionBox_OkRequested(object sender, EventArgs e)
         {
-            eDataDimension CurrentDimension;
-            switch (sender.ToStringValue())
-            {
-                default:
-                case "B":
-                    CurrentDimension = eDataDimension.Byte;
-                    break;
-                case "KB":
-                    CurrentDimension = eDataDimension.Kilobyte;
-                    break;
-                case "MB":
-                    CurrentDimension = eDataDimension.Megabyte;
-                    break;
-                case "GB":
-                    CurrentDimension = eDataDimension.Gigabyte;
-                    break;
-                case "TB":
-                    CurrentDimension = eDataDimension.Terabyte;
-                    break;
-                case "PB":
-                    CurrentDimension = eDataDimension.Petabyte;
-                    break;
-            }
-            m_TrackedFiles.Add(new Entry
-            {
-                FilePath = m_TrackingDBStateEntry.LDFLocation,
-                MaxFileSize = m_TrackingMaxFileSizeInput.ToLongValue(),
-                DataDimension = CurrentDimension
-            });
-            IO.WriteFileList(m_TrackedFiles);
-            Execute_Reload();
-        }
-        #endregion
-
-        #region [__AssignTrackedFiles]
-        private void __AssignTrackedFiles()
-        {
-            m_TrackedFiles = IO.ReadFileList() ?? new List<Entry>();
-            foreach (var TrackedFile in m_TrackedFiles)
-            {
-                var MatchingDBEntry = DBEntries.FirstOrDefault(x => x.LDFLocation.Equals(TrackedFile.FilePath) || x.MDFLocation.Equals(TrackedFile.FilePath));
-                if (MatchingDBEntry != null)
-                    MatchingDBEntry.TrackedFiles.Add(TrackedFile);
-            }
+            __ThrowMessage($"{nameof(__FileSizeDimensionBox_OkRequested)} failed.", "The method is not yet implemented.");
+            //TODO: USE NEW File Checking
+            //eDataDimension CurrentDimension;
+            //switch (sender.ToStringValue())
+            //{
+            //    default:
+            //    case "B":
+            //        CurrentDimension = eDataDimension.Byte;
+            //        break;
+            //    case "KB":
+            //        CurrentDimension = eDataDimension.Kilobyte;
+            //        break;
+            //    case "MB":
+            //        CurrentDimension = eDataDimension.Megabyte;
+            //        break;
+            //    case "GB":
+            //        CurrentDimension = eDataDimension.Gigabyte;
+            //        break;
+            //    case "TB":
+            //        CurrentDimension = eDataDimension.Terabyte;
+            //        break;
+            //    case "PB":
+            //        CurrentDimension = eDataDimension.Petabyte;
+            //        break;
+            //}
+            //m_TrackedFiles.Add(new Entry
+            //{
+            //    FilePath = m_TrackingDBStateEntry.LDFLocation,
+            //    MaxFileSize = m_TrackingMaxFileSizeInput.ToLongValue(),
+            //    DataDimension = CurrentDimension
+            //});
+            //IO.WriteFileList(m_TrackedFiles);
+            //Execute_Reload();
         }
         #endregion
 
@@ -957,37 +1272,6 @@ namespace DatabaseBuddy.ViewModel
                 if (m_DNSName.Length > 32)
                     m_DNSName = m_DNSName.Substring(0, 32);
                 DBEntry.HasODBCEntry = ODBCEntries.Any(x => x.Equals(m_DNSName));
-            }
-        }
-        #endregion
-
-        #region [__RemoveTrackedFiles]
-        private void __RemoveTrackedFiles()
-        {
-            if (m_TrackedFiles != null && m_TrackedFiles.Any())
-            {
-                m_TrackedFiles.Remove(m_TrackingDBStateEntry.TrackedFiles.FirstOrDefault());
-                IO.WriteFileList(m_TrackedFiles);
-            }
-            Execute_Reload();
-        }
-        #endregion
-
-        #region [GetRegistryValue]
-        public static string GetRegistryValue(string key)
-        {
-            try
-            {
-                var BaseKey = Registry.CurrentUser.OpenSubKey("Software", true);
-                var Key = BaseKey.OpenSubKey(nameof(DatabaseBuddy), true);
-                if (Key == null)
-                    Key = BaseKey.CreateSubKey(nameof(DatabaseBuddy), true);
-
-                return Key.GetValue(key).ToStringValue();
-            }
-            catch (Exception ex)
-            {
-                return string.Empty;
             }
         }
         #endregion
@@ -1015,11 +1299,12 @@ namespace DatabaseBuddy.ViewModel
             {
                 ssms.StartInfo.FileName = m_MSSQLStudioPath;
                 ssms.StartInfo.Arguments =
-                  $"-nosplash " +
                   $" -S {ServerName} " +
                   $" -d {DataBaseName}" +
-                  $" -U {m_User}" +
-                  $" -P {m_Password}";
+                  (!IntegratedSecurity && m_UserName.IsNotNullOrEmpty() && m_Password.IsNotNullOrEmpty() ?
+                  $" -U {m_UserName} " +
+                  $"-P {Password}" : " -E") +
+                  " -nosplash";
                 ssms.Start();
             }
         }
@@ -1031,22 +1316,30 @@ namespace DatabaseBuddy.ViewModel
             try
             {
                 var ExeName = "Ssms.exe";
-                foreach (string folder in Environment.GetEnvironmentVariable("path").Split(';'))
+                var Variables = Environment.GetEnvironmentVariable("path").Split(';').ToList();
+                Variables.Add(@"C:\Program Files (x86)");
+                foreach (string folder in Variables)
                 {
-                    if (File.Exists(folder + ExeName))
+                    try
                     {
-                        m_MSSQLStudioPath = folder + ExeName;
-                        break;
+                        var FilesInDirectory = Directory.GetFiles(folder, "*.exe", SearchOption.AllDirectories);
+                        var LocatedExe = FilesInDirectory.FirstOrDefault(x => x.EndsWith(ExeName, StringComparison.InvariantCultureIgnoreCase));
+                        if (LocatedExe.IsNotNullOrEmpty())
+                        {
+                            m_MSSQLStudioPath = LocatedExe;
+                            __WriteRegistryValue(nameof(m_MSSQLStudioPath), m_MSSQLStudioPath);
+                            break;
+                        }
                     }
-                    else if (File.Exists(folder + "\\" + ExeName))
+                    catch (Exception)
                     {
-                        m_MSSQLStudioPath = folder + "\\" + ExeName;
-                        break;
+                        continue;
                     }
                 }
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__GetMSSQLStudioPath)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -1090,7 +1383,7 @@ namespace DatabaseBuddy.ViewModel
                         Cmd += "WHERE state_desc = 'ONLINE' ";
                     if (dbstate == eDATABASESTATE.OFFLINE)
                         Cmd += "WHERE state_desc = 'OFFLINE' ";
-                    Cmd += ";";
+                    Cmd += " AND is_read_only != 1;";
                     var tmpDatabaseEntries = new List<DBStateEntry>();
                     using (var Reader = Db.GetDataReader(Cmd))
                     {
@@ -1127,14 +1420,11 @@ namespace DatabaseBuddy.ViewModel
                     __WriteRegistryValue(nameof(ServerName), ServerName);
                     return tmpDatabaseEntries;
                 }
-                else
-                {
-
-                }
                 return new List<DBStateEntry>();
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__LoadDataBases)} failed!", ex.ToString());
                 return new List<DBStateEntry>();
             }
 
@@ -1155,12 +1445,10 @@ namespace DatabaseBuddy.ViewModel
                         if (PathReader["type_desc"].ToStringValue().Equals("LOG"))
                         {
                             DBEntry.LDFLocation = PathReader["physical_name"].ToStringValue();
-                            DBEntry.LDFSize = PathReader[nameof(Size)].ToInt32Value();
                         }
                         else
                         {
                             DBEntry.MDFLocation = PathReader["physical_name"].ToStringValue();
-                            DBEntry.MDFSize = PathReader[nameof(Size)].ToInt32Value();
                         }
                     }
                     PathReader.Close();
@@ -1199,7 +1487,6 @@ namespace DatabaseBuddy.ViewModel
                         Reader.Close();
                         Db.CloseDataReader();
                     }
-
                     var Cmd = "USE[master] \n";
                     var builder = new System.Text.StringBuilder();
                     builder.Append(Cmd);
@@ -1213,9 +1500,9 @@ namespace DatabaseBuddy.ViewModel
                     {
                         Db.ExecuteNonQuery(Cmd);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        //Default Exception Process to kill the Connections is also a Process and cannot kill itself
+                        __ThrowMessage($"{nameof(__KillConnections)} failed!", ex.ToString());
                         continue;
                     }
                 }
@@ -1234,7 +1521,7 @@ namespace DatabaseBuddy.ViewModel
             {
                 foreach (var DataBaseName in DataBaseEntries)
                 {
-                    if (DataBaseName.IsSystemDataBase)
+                    if (DataBaseName.IsSystemDatabase)
                         continue;
                     var Cmd = "USE[master] \n";
                     Cmd += $" ALTER DATABASE [{DataBaseName.DBName}] SET ONLINE ";
@@ -1252,18 +1539,18 @@ namespace DatabaseBuddy.ViewModel
             if (DataBaseEntries == null || !DataBaseEntries.Any())
                 return;
             var Messagetext = $"Are you sure to delete the following databases?\n";
-            DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
+            DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
             if (!silentDelete)
             {
-                var DeleteResult = MessageBox.Show(Messagetext, "Confirm delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (DeleteResult == MessageBoxResult.No)
+                var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                if (DeleteResult == MessageDialogResult.Canceled || DeleteResult == MessageDialogResult.Negative)
                     return;
             }
             __KillConnections(DataBaseEntries);
 
             if (Db != null)
             {
-                foreach (var DataBaseName in DataBaseEntries.Where(x => !x.IsSystemDataBase))
+                foreach (var DataBaseName in DataBaseEntries.Where(x => !x.IsSystemDatabase))
                 {
                     var Cmd = "USE[master] \n";
                     Cmd += $" DROP DATABASE [{DataBaseName.DBName}]";
@@ -1323,6 +1610,35 @@ namespace DatabaseBuddy.ViewModel
         }
         #endregion
 
+        #region [__GetLogicalFileNames]
+        private Dictionary<string, string> __GetLogicalFileNames(string BakPath)
+        {
+            string DataFile = string.Empty;
+            string LogFile = string.Empty;
+            var Cmd = $"RESTORE FILELISTONLY FROM DISK = '{BakPath}'";
+            using (var Reader = Db.GetDataReader(Cmd))
+            {
+                if (Reader.HasRows)
+                {
+                    while (Reader.Read())
+                    {
+                        var Type = Reader["Type"].ToStringValue();
+                        if (Type.Equals("D"))
+                            DataFile = Reader["LogicalName"].ToStringValue();
+                        else if (Type.Equals("L"))
+                            LogFile = Reader["LogicalName"].ToStringValue();
+                    }
+                    Reader.Close();
+                    Db.CloseDataReader();
+                }
+            }
+            var BackupFileList = new Dictionary<string, string>();
+            BackupFileList.Add(nameof(DataFile), DataFile);
+            BackupFileList.Add(nameof(LogFile), LogFile);
+            return BackupFileList;
+        }
+        #endregion
+
         #region [__RestoreBackup]
         private void __RestoreBackup(List<DBStateEntry> DataBaseEntries, bool SilentRestore = false)
         {
@@ -1331,11 +1647,11 @@ namespace DatabaseBuddy.ViewModel
                 if (DataBaseEntries == null || !DataBaseEntries.Any())
                     return;
                 var Messagetext = $"Are you sure to restore the following databases?\n";
-                DataBaseEntries.Where(x => !x.IsSystemDataBase).ToList().ForEach(x => Messagetext += $"-{x.DBName} Last Backup {x.LastBackupTime}\n");
+                DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName} Last Backup {x.LastBackupTime}\n");
                 if (!SilentRestore)
                 {
-                    var RestoreBackupResult = MessageBox.Show(Messagetext, "Confirm restore", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (RestoreBackupResult == MessageBoxResult.No)
+                    var RestoreBackupResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm restore", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+                    if (RestoreBackupResult == MessageDialogResult.Canceled || RestoreBackupResult == MessageDialogResult.Negative)
                         return;
                 }
                 __KillConnections(DataBaseEntries);
@@ -1344,6 +1660,7 @@ namespace DatabaseBuddy.ViewModel
                 {
                     foreach (var DataBase in DataBaseEntries)
                     {
+                        var BackupPrevData = __GetLogicalFileNames(DataBase.LastBackupPath);
                         if (DataBase.LastBackupPath.Length == 0)
                             continue;
                         var builder = new System.Text.StringBuilder();
@@ -1351,16 +1668,20 @@ namespace DatabaseBuddy.ViewModel
                         _ = builder.Append(Cmd);
 
                         builder.Append($@"RESTORE DATABASE [{DataBase.DBName}]
- FROM DISK = N'{DataBase.LastBackupPath}' WITH REPLACE;");
+FROM DISK = N'{DataBase.LastBackupPath}'
+WITH
+    MOVE '{BackupPrevData["DataFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.mdf',
+    MOVE '{BackupPrevData["LogFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.ldf'");
                         Cmd = builder.ToString();
                         _ = Db.ExecuteNonQuery(Cmd); ;
                     }
                 }
                 Execute_Reload();
-                MessageBox.Show($"Erfolgreich wiederhergestellt", "Wiederherstellung erfolgreich", MessageBoxButton.OK, MessageBoxImage.Information);
+                DialogManager.ShowModalMessageExternal(MetroWnd, $"Successful restored", "Restoring was successful");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__RestoreBackup)} failed!", ex.ToString());
                 __ActivateConnections(DataBaseEntries);
             }
         }
@@ -1378,7 +1699,8 @@ namespace DatabaseBuddy.ViewModel
             {
                 foreach (var item in Entries)
                 {
-                    if (item.DBName.Equals("master", StringComparison.InvariantCultureIgnoreCase))
+                    if (item.DBName.Equals("master", StringComparison.InvariantCultureIgnoreCase)
+                        || item.DBName.Equals("tempdb", StringComparison.InvariantCultureIgnoreCase))
                         continue;
                     var BackupPath = Path.GetDirectoryName(item.MDFLocation) + $@"\backup\{BackupTime}";
                     _ = Directory.CreateDirectory(BackupPath);
@@ -1389,7 +1711,7 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
                 _ = Db.ExecuteNonQuery(CmdBackup);
             }
             Execute_Reload();
-            _ = MessageBox.Show("Datenbankbackups erfolgreich erzeugt", "Backup erfolgreich", MessageBoxButton.OK, MessageBoxImage.Information);
+            DialogManager.ShowModalMessageExternal(MetroWnd, "Backups done", "Backups successful created");
         }
         #endregion
 
@@ -1398,6 +1720,8 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
         {
             try
             {
+                if (!__IsLocal())
+                    return;
                 UnusedFiles = new List<string>();
                 if (Db != null)
                 {
@@ -1425,9 +1749,9 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
                 UnusedFiles = UnusedFiles.Distinct().ToList();
                 OnPropertyChanged(nameof(UnusedFiles));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                __ThrowMessage($"{nameof(__GetUnusedDataBaseFiles)} failed!", ex.ToString());
             }
         }
         #endregion
@@ -1437,16 +1761,16 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
         {
             if (Directory.Exists(folderPath))
             {
-                var startInfo = new System.Diagnostics.ProcessStartInfo
+                var startInfo = new ProcessStartInfo
                 {
                     Arguments = folderPath,
                     FileName = "explorer.exe"
                 };
-                _ = System.Diagnostics.Process.Start(startInfo);
+                _ = Process.Start(startInfo);
             }
             else
             {
-                _ = MessageBox.Show($"{folderPath} Directory does not exist!");
+                _ = DialogManager.ShowModalMessageExternal((MetroWindow)Application.Current.MainWindow, "Directory does not exist", $"{folderPath} Directory does not exist!");
             }
         }
         #endregion
@@ -1480,29 +1804,30 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
         #endregion
 
         #region [__RenameDataBase]
-        private void __RenameDataBase(List<DBStateEntry> Entries)
+        private void __RenameDataBase(List<DBStateEntry> Entries, string Caption = "Choose the new name", string Message = "Please type the new name")
         {
-            var Wnd = new InputBox("Choose the new name", "Please type the new name", Entries.First().DBName);
-            Wnd.OkRequested += __NewNameTyped;
-            Wnd.ShowDialog();
-        }
-        #endregion
-
-        #region [__NewNameTyped]
-        private void __NewNameTyped(object sender, EventArgs e)
-        {
-            if (SelectedDB is DBStateEntry State && Db != null)
+            var Settings = new MetroDialogSettings();
+            Settings.DefaultText = Entries.First().DBName;
+            var NewName = DialogManager.ShowModalInputExternal(MetroWnd, Caption, Message, Settings)?.Trim();
+            if (NewName == null)
+                return;
+            if (NewName.Equals(""))
+                __RenameDataBase(Entries);
+            else
             {
-                if (DBEntries.Any(x => x.DBName.Equals(sender.ToString())))
+                if (SelectedDB is DBStateEntry State && Db != null)
                 {
-                    var Wnd = new InputBox("Rename failed", $"Database Name {sender} already exists. Please try again", State.DBName);
-                    Wnd.OkRequested += __NewNameTyped;
-                    Wnd.ShowDialog();
-                }
-                else
-                {
-                    Db.ExecuteNonQuery($@"USE [MASTER] ALTER DATABASE [{State.DBName}] MODIFY NAME = [{sender}] ;");
-                    Execute_Reload();
+                    if (State.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase) || Db == null)
+                        return;
+                    if (DBEntries.Any(x => x.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase)))
+                    {
+                        __RenameDataBase(Entries, "Rename failed", $"Database Name {NewName} already exists. Please try again");
+                    }
+                    else
+                    {
+                        Db.ExecuteNonQuery($@"USE [MASTER] ALTER DATABASE [{State.DBName}] MODIFY NAME = [{NewName}] ;");
+                        Execute_Reload();
+                    }
                 }
             }
         }
@@ -1546,90 +1871,64 @@ CREATE DATABASE [{Entry.CloneName}]
             }
             catch (Exception ex)
             {
+                __ThrowMessage($"{nameof(__RunCloneDataBase)} failed!", ex.ToString());
             }
         }
         #endregion
 
         #region [__RunCreateNewDataBase]
-        private void __RunCreateNewDataBase(object sender, EventArgs e)
+        private void __RunCreateNewDataBase(string Caption = "New database name", string Message = "Please enter your new database name")
         {
-            if (sender == null || ((string)sender).Length == 0)
+            var NewName = DialogManager.ShowModalInputExternal(MetroWnd, Caption, Message)?.Trim();
+            if (NewName == null)
                 return;
-
-            if (Db != null)
+            if (NewName.Equals(""))
+                __RunCreateNewDataBase("Retry", "Database Name cannot be empty");
+            else
             {
-                var Cmd = "USE[master] \n";
-                Cmd += $" CREATE DATABASE [{sender as string}];";
-                Db.ExecuteNonQuery(Cmd);
+                if (Db == null)
+                    return;
+                if (DBEntries.Any(x => x.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase)))
+                {
+                    __RunCreateNewDataBase("Creation failed", $"Database Name {NewName} already exists. Please try again");
+                }
+                else
+                {
+                    var Cmd = "USE[master] \n";
+                    Cmd += $" CREATE DATABASE [{NewName}];";
+                    Db.ExecuteNonQuery(Cmd);
+                }
             }
             Execute_Reload();
         }
         #endregion
 
-        #region [__Clone_InputBox_OkRequested]
-        private void __Clone_InputBox_OkRequested(object sender, EventArgs e)
+        #region [__RunCloneDatabaseWithAnyName]
+        private void __RunCloneDatabaseWithAnyName(List<DBStateEntry> Entries, string Caption = "Choose Clone name", string Message = "Please type a name for the clone")
         {
-            SelectedDB.CloneName = sender as string;
-            __RunCloneDataBase(new List<DBStateEntry> { SelectedDB });
-            _ = MessageBox.Show($"Successful cloned '{SelectedDB.DBName}' to {SelectedDB.CloneName}");
-        }
-        #endregion
-
-        #region [__ActivateTaskScheduler]
-        private void __ActivateTaskScheduler()
-        {
-            if (m_ScheduleActivated || !m_FileTrackingEnabled)
+            var Settings = new MetroDialogSettings();
+            Settings.DefaultText = $"{Entries.First().DBName}_Clone";
+            var NewName = DialogManager.ShowModalInputExternal(MetroWnd, Caption, Message, Settings)?.Trim();
+            if (NewName == null)
                 return;
-            var response = WindowTaskScheduler.Configure()
-                                              .CreateTask("FileMonitoring", @"C:\Windows\System32\WindowsPowerShell\v1.0\powerShell.exe command " + $"\"{Constants.APPLICATION_DOCUMENTS_FOLDER}\\Execute.ps1\"")
-                                              .RunDaily()
-                                              .RunEveryXMinutes(60)
-                                              .RunDurationFor(new TimeSpan(8, 30, 0))
-                                              .SetStartDate(DateTime.Now.AddDays(1))
-                                              .SetStartTime(new TimeSpan(8, 0, 0))
-                                              .Execute();
-            if (response.IsSuccess)
-                __WriteRegistryValue("EnabledSchedule", "1");
-        }
-        #endregion
-
-        #region [__HandleFileTrackingNeeds]
-        private void __HandleFileTrackingNeeds()
-        {
-            try
+            if (NewName.Equals(""))
+                __RunCloneDatabaseWithAnyName(Entries, "Retry", "Clone Name cannot be empty");
+            else
             {
-                if (!Directory.Exists(Constants.APPLICATION_DOCUMENTS_FOLDER))
-                    Directory.CreateDirectory(Constants.APPLICATION_DOCUMENTS_FOLDER);
-
-                new List<string>
-      {
-        "Newtonsoft.Json.dll",
-        "Övervakning.Executeable.dll",
-        "Övervakning.Shared.dll",
-        "Övervakning.Executeable.deps.json",
-        "Övervakning.Executeable.runtimeconfig.json",
-      }.ForEach(x => __CopyFileIfNotExist(x));
-
-                if (!File.Exists(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, "Execute.ps1")))
+                if (Db == null)
+                    return;
+                if (DBEntries.Any(x => x.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase)))
                 {
-                    File.Create(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, "Execute.ps1")).Close();
-                    File.WriteAllText(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, "Execute.ps1"), $"Set-ExecutionPolicy remotesigned -force \n $mydocuments = [environment]::getfolderpath(\"mydocuments\") \n" +
-                      $"cd $mydocuments \n cd \"Övervakning\" \ndotnet Övervakning.Executeable.dll --NoVisualAlert", Encoding.UTF8);
+                    __RunCloneDatabaseWithAnyName(Entries, "Rename failed", $"Database Name {NewName} already exists. Please try again");
                 }
-                __ActivateTaskScheduler();
+                else
+                {
+                    SelectedDB.CloneName = NewName;
+                    __RunCloneDataBase(new List<DBStateEntry> { SelectedDB });
+                    Execute_Reload();
+                    DialogManager.ShowModalMessageExternal(MetroWnd, "Successful cloned", $"Successful cloned '{SelectedDB.DBName}' to {SelectedDB.CloneName}");
+                }
             }
-            catch (Exception ex)
-            {
-            }
-        }
-        #endregion
-
-        #region [__CopyFileIfNotExist]
-        private static void __CopyFileIfNotExist(string FileName, bool OverWrite = false)
-        {
-            return;
-            if (!File.Exists(Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, FileName)))
-                File.Copy(@$"\\DatabaseBuddy\RequiredDLLs\{FileName}", Path.Combine(Constants.APPLICATION_DOCUMENTS_FOLDER, FileName), OverWrite);
         }
         #endregion
 
@@ -1637,6 +1936,39 @@ CREATE DATABASE [{Entry.CloneName}]
         private static string __GetVersion()
         {
             return "v " + Assembly.GetEntryAssembly().GetName().Version.ToString();
+        }
+        #endregion
+
+        #region [__GetDefaultDataPath]
+        private void __GetExtendedDBInformations()
+        {
+            using (var Reader = Db.GetDataReader(@"SELECT SERVERPROPERTY('InstanceDefaultDataPath') AS InstanceDefaultDataPath"))
+            {
+                if (Reader != null && Reader.HasRows)
+                {
+                    while (Reader.Read())
+                        m_DefaultDataPath = Reader["InstanceDefaultDataPath"].ToStringValue();
+                    Reader.Close();
+                    Db.CloseDataReader();
+                }
+            }
+            using (var Reader = Db.GetDataReader(@"SELECT @@SERVICENAME AS InstanceName"))
+            {
+                if (Reader != null && Reader.HasRows)
+                {
+                    while (Reader.Read())
+                        m_InstanceName = Reader["InstanceName"].ToStringValue();
+                    Reader.Close();
+                    Db.CloseDataReader();
+                }
+            }
+        }
+        #endregion
+
+        #region [__GetThemeCboItems]
+        private static ObservableCollection<string> __GetThemeCboItems()
+        {
+            return new ObservableCollection<string>(ThemeManager.Current.ColorSchemes);
         }
         #endregion
 
@@ -1648,7 +1980,6 @@ CREATE DATABASE [{Entry.CloneName}]
             ShowSystemDatabases = new DelegateCommand<object>(Execute_ShowSystemDatabases);
             SwitchMultiMode = new DelegateCommand<object>(Execute_SwitchMultiMode);
             SelectAll = new DelegateCommand<object>(Execute_SelectAll);
-            SwitchTracking = new DelegateCommand<object>(Execute_SwitchTracking);
             Reconnect = new DelegateCommand<object>(Execute_Reconnect);
             GotLbFocus = new DelegateCommand<object>(Execute_GotLbFocus);
             DeleteSelectedDataBase = new DelegateCommand<object>(Execute_DeleteSelectedDataBase);
@@ -1669,6 +2000,10 @@ CREATE DATABASE [{Entry.CloneName}]
             RestoreAll = new DelegateCommand<object>(Execute_RestoreAll);
             DeleteUnusedFiles = new DelegateCommand<object>(Execute_DeleteUnusedFiles);
             RestoreMultipleBaks = new DelegateCommand<object>(Execute_RestoreMultipleBaks);
+            ToggleSettings = new DelegateCommand<object>(Execute_ToggleSettings);
+            ChangeBaseTheme = new DelegateCommand<object>(Execute_ChangeBaseTheme);
+            RestartSQLServerInstance = new DelegateCommand<object>(Execute_RestartService);
+            RestartAsAdmin = new DelegateCommand<object>(Execute_RestartAsAdmin);
         }
         #endregion
 
