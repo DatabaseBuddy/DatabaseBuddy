@@ -5,52 +5,38 @@
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
                   xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity" 
+                  xmlns:local="clr-namespace:DatabaseBuddy.View.DataElements"
+                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   mc:Ignorable="d"
         Title="DatabaseBuddy" Height="450"
         Width="600"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         Loaded="__WindowLoaded_Start">
+    <mah:MetroWindow.Resources>
+        <local:Forms x:Key="Images" />
+    </mah:MetroWindow.Resources>
     <Grid x:Name="MainGrid">
         <Grid.RowDefinitions>
-            <RowDefinition Height="28"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid x:Name="HeaderGrid" Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="95" />
-                <ColumnDefinition Width="90" />
-            </Grid.ColumnDefinitions>
-            <!--<Image Grid.Column="0"
-             Source="/Resources/**Header.png" 
-             Stretch="Fill" />
-            <Image Grid.Column="1" 
-             Source="/Resources/**Logo Extended.png"
-             HorizontalAlignment="Left" />
-            <Canvas Grid.Column="2" Canvas.ZIndex="1">
-                <Image Height="25"
-               Width="58" 
-               Source="/Resources/**Logo.png" 
-               ToolTipService.ToolTip="Online Webseite Link"/>
-            </Canvas>-->
-        </Grid>
+
 
         <Grid x:Name="DataBaseGrid" 
-          Grid.Row="1" 
+          Grid.Row="0" 
           VerticalAlignment="Top">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition MaxHeight="30"/>
+                <RowDefinition />
                 <RowDefinition Height="2*"/>
                 <RowDefinition Height="4*"/>
                 <RowDefinition Height="2*"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Grid.Row="0" Margin="10 0 0 0">
                 <Label Content="Databases"
                         Height="30"
                         VerticalAlignment="Center"
@@ -61,25 +47,27 @@
                         Margin="0 0 10 0"/>
                 <Button x:Name="btnReload"
                         Height="22"
-                        Content="Reload"
+                        Width="22"
                          Command="{Binding Reload}"
                         CommandParameter="{Binding}"
-                         Margin="0 0 10 0"/>
-                <!--<Image Source="/Resources/refresh.png" Height="16"
-                   Width="16"
-                   VerticalAlignment="Center"/>-->
+                        Style="{DynamicResource MahApps.Styles.Button.Circle}"
+                         Margin="0 0 10 0"
+                        BorderThickness="0">
+                    <Button.Content>
+                        <iconPacks:PackIconForkAwesome Kind="Refresh" />
+                    </Button.Content>
+                </Button>
                 <Button HorizontalContentAlignment="Left"
-                         Height="22"
-                         Content="New Database"
-                         Command="{Binding CreateNewDatabase}"
-                         Margin="0 0 10 0"/>
-                <mah:ToggleSwitch HorizontalContentAlignment="Left"
-                                  OffContent="Include System databases"
-                                  OnContent="Hide System DataBases"
-                                  Command="{Binding ShowSystemDatabases}"
-                                  IsOn="{Binding SystemDataBasesToggled, Mode=OneWay}"
-                                  Margin="0 0 10 0"
-                                  VerticalAlignment="Top"/>
+                        Height="22"
+                        Width="22"
+                        Command="{Binding CreateNewDatabase}"
+                        Margin="0 0 10 0"
+                        Style="{DynamicResource MahApps.Styles.Button.Circle}"
+                        BorderThickness="0">
+                    <Button.Content>
+                        <iconPacks:PackIconPicolIcons Kind="DatabaseAdd" />
+                    </Button.Content>
+                </Button>
                 <Button HorizontalContentAlignment="Left"
                          Height="22"
                          Content="{Binding MultiModeToggleCaption}"
@@ -111,12 +99,8 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal"                         
                             Grid.Row="1"
-                            Grid.Column="0">
-                <Label Content="Filter: "
-                       Width="200"
-                       Margin="10 0 -20 0"
-                       FontSize="16"
-                       FontWeight="DemiBold"/>
+                            Grid.Column="0"
+                        Margin="15 0 0 0">
                 <TextBox HorizontalAlignment="Left"
                          Width="300"
                          Height="22"
@@ -146,22 +130,21 @@
                         <MenuItem Header="Delete"
                         Command="{Binding DeleteSelectedDataBase}"
                         IsEnabled="{Binding RestrictedRights}">
+
                             <MenuItem.Icon>
-                                <Image Source="/Resources/delete.png"
-                         Height="16"
-                         Width="16" />
+                                <iconPacks:PackIconRemixIcon Kind="DeleteBin2Line"/>
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="Open db Folder"
                         Command="{Binding OpenFolder}">
                             <MenuItem.Icon>
-                                <Image Source="/Telerik.Windows.Controls.RichTextBoxUI;component/Images/MSOffice/16/open.png"/>
+                                <iconPacks:PackIconRemixIcon Kind="FolderOpenLine" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="Open last Backup Folder"
                         Command="{Binding OpenLastBackupFolder}">
                             <MenuItem.Icon>
-                                <Image Source="/Telerik.Windows.Controls.RichTextBoxUI;component/Images/MSOffice/16/open.png"/>
+                                <iconPacks:PackIconRemixIcon Kind="FolderOpenLine" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Command="{Binding CloneDataBase}"
@@ -169,18 +152,24 @@
                         IsEnabled="{Binding RestrictedRights}"
                         HorizontalContentAlignment="Left">
                             <MenuItem.Icon>
-                                <Image Source="/Resources/copy.png" />
+                                <iconPacks:PackIconFontAwesome Kind="CloneRegular" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Command="{Binding RenameDatabase}"
                         Header="Rename Database"
                         IsEnabled="{Binding RestrictedRights}"
                         HorizontalContentAlignment="Left">
+                            <MenuItem.Icon>
+                                <iconPacks:PackIconMaterial Kind="FormTextbox" />
+                            </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Command="{Binding CutLogFile}"
                         Header="Cut Log"
                         IsEnabled="{Binding RestrictedRights}"
                         HorizontalContentAlignment="Left">
+                            <MenuItem.Icon>
+                                <iconPacks:PackIconFontaudio Kind="Cutter" />
+                            </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
                 </ListBox.ContextMenu>
@@ -193,7 +182,7 @@
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal">
                             <Path Data="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" 
-                                  Fill="Yellow"
+                                  Fill="Orange"
                                   Visibility="{Binding SystemDatabaseWarningVisible}" 
                                   ToolTip="This database is a system database. Proceed with caution."
                                   VerticalAlignment="Center" Margin="0 0 0 2.5"/>
@@ -303,7 +292,7 @@
             </Grid>
         </Grid>
         <Grid x:Name="BottomGrid" 
-          Grid.Row="2"
+          Grid.Row="1"
           HorizontalAlignment="Stretch">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="74" />
@@ -312,12 +301,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="22" />
             </Grid.RowDefinitions>
-            <!--<Image Grid.Column="0" 
-             Source="/Resources/**Bottom.png" 
-             HorizontalAlignment="Left" />
-            <Image Grid.Column="1"
-             Source="/Resources/**BottomPng" 
-             Stretch="Fill" />-->
             <Label x:Name="tbInformations"
              Grid.Column="2"
              Content ="{Binding SystemInformation}"
@@ -354,6 +337,16 @@
                                                Minimum="0"
                                                Maximum="100000000"
                                                Value="{Binding MaxLogSize, Mode=TwoWay}"/>
+                            <Label Content="Show System databases"
+                                   Grid.Row="1"
+                                   Grid.Column="0" />
+                            <mah:ToggleSwitch HorizontalContentAlignment="Left"
+                                              Command="{Binding ShowSystemDatabases}"
+                                              IsOn="{Binding SystemDataBasesToggled, Mode=OneWay}"
+                                              Margin="0 0 10 0"
+                                              Grid.Row="1" 
+                                              Grid.Column="1"
+                                              VerticalAlignment="Top"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="Connection">

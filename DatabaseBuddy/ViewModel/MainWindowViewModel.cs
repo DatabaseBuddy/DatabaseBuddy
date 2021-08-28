@@ -4,6 +4,7 @@ using DatabaseBuddy.Core.Attributes;
 using DatabaseBuddy.Core.DatabaseExtender;
 using DatabaseBuddy.Core.Extender;
 using DatabaseBuddy.Entities;
+using DatabaseBuddy.View.DataElements;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
@@ -20,6 +21,8 @@ using System.ServiceProcess;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+
 namespace DatabaseBuddy.ViewModel
 {
     public class MainWindowViewModel : ViewModelBase
