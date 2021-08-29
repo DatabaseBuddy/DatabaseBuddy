@@ -58,6 +58,8 @@ namespace DatabaseBuddy.ViewModel
         private string m_DBFilter;
         private static long m_MaxLogSize;
         private double m_ScalingValue = 1;
+        private static int m_MaxBackupCount;
+        private bool m_AutoCleanBackups;
         #endregion
 
         #region [Ctor]
@@ -273,6 +275,10 @@ namespace DatabaseBuddy.ViewModel
             }
         }
 
+        public double AllDBSize => Math.Round(DBEntries.Select(x => x.DataBaseSize).Sum().ToByte().ToGigaByte(), 2);
+        public double AllBackupSize => Math.Round(DBEntries.Select(x => x.AllBackupSize).Sum().ToByte().ToGigaByte(), 2);
+        public double AllSize => Math.Round(AllDBSize + AllBackupSize, 2);
+
         [DependsUpon(nameof(UnusedFiles))]
         public string DeleteUnusedFilesCaption => !UnusedFiles.Any() ? "No unused database files" : $"Delete {UnusedFiles.Count} unused database files";
 
@@ -418,6 +424,19 @@ namespace DatabaseBuddy.ViewModel
             }
         }
 
+        public int MaxBackupCount
+        {
+            get
+            {
+                return m_MaxBackupCount;
+            }
+            set
+            {
+                m_MaxBackupCount = value;
+                __WriteRegistryValue(nameof(MaxBackupCount), value.ToString());
+            }
+        }
+
         public double ScalingValue
         {
             get
@@ -433,6 +452,20 @@ namespace DatabaseBuddy.ViewModel
                 MetroWnd.LayoutTransform = new ScaleTransform(value, value);
                 MetroWnd.Title = value == 1 ? $"{nameof(DatabaseBuddy)}" : $"{nameof(DatabaseBuddy)} {(value * 100).ToInt32Value()}%";
                 OnPropertyChanged(nameof(ScalingValue));
+            }
+        }
+
+        public bool AutoCleanBackups
+        {
+            get
+            {
+                return m_AutoCleanBackups;
+            }
+            set
+            {
+                m_AutoCleanBackups = value;
+                OnPropertyChanged(nameof(AutoCleanBackups));
+                __WriteRegistryValue(nameof(AutoCleanBackups), value ? "1" : "0");
             }
         }
 
@@ -628,6 +661,10 @@ namespace DatabaseBuddy.ViewModel
             {
                 __ThrowMessage($"{nameof(Execute_BackupAll)} failed!", ex.ToString());
             }
+            finally
+            {
+                Execute_Reload();
+            }
         }
         #endregion
 
@@ -672,6 +709,10 @@ namespace DatabaseBuddy.ViewModel
             {
                 __ThrowMessage($"{nameof(Execute_BackupSelectedDataBase)} failed!", ex.ToString());
             }
+            finally
+            {
+                Execute_Reload();
+            }
         }
         #endregion
 
@@ -704,6 +745,7 @@ namespace DatabaseBuddy.ViewModel
                     return;
                 Db.ExecuteScalar("USE [master] SELECT TOP (1) xserver_name FROM [master].[dbo].[spt_fallback_db]");
                 __ReloadDBs();
+                DBEntries.ForEach(x => x.AllBackups = x.GetBackups());
                 __GetUnusedDataBaseFiles();
                 __SetMultiMode(false);
                 __AssignGeneralProps();
@@ -714,6 +756,7 @@ namespace DatabaseBuddy.ViewModel
                     var tmpFilterValue = DBFilter;
                     DBFilter = tmpFilterValue;
                 }
+                __FireChangedEvents();
             }
             catch (Exception ex)
             {
@@ -1146,6 +1189,15 @@ namespace DatabaseBuddy.ViewModel
 
         #region - private methods -
 
+        #region [__FireChangedEvents]
+        private void __FireChangedEvents()
+        {
+            OnPropertyChanged(nameof(AllDBSize));
+            OnPropertyChanged(nameof(AllBackupSize));
+            OnPropertyChanged(nameof(AllSize));
+        }
+        #endregion
+
         #region [__ResetInvalidConnection]
         private void __ResetInvalidConnection(object sender, EventArgs e)
         {
@@ -1173,6 +1225,8 @@ namespace DatabaseBuddy.ViewModel
             IntegratedSecurity = GetRegistryValue(nameof(IntegratedSecurity)).ToBooleanValue();
             m_MaxLogSize = GetRegistryValue(nameof(MaxLogSize)).ToLongValue();
             ScalingValue = GetRegistryValue(nameof(ScalingValue)).ToDoubleValue();
+            MaxBackupCount = GetRegistryValue(nameof(MaxBackupCount)).ToInt32Value();
+            AutoCleanBackups = GetRegistryValue(nameof(AutoCleanBackups)).ToBooleanValue();
         }
         #endregion
 
@@ -1727,7 +1781,7 @@ WITH
         private void __BackupDatabases(List<DBStateEntry> Entries)
         {
             __ActivateConnections(Entries);
-            var BackupTime = DateTime.Now.ToString("ddMMyyyy HHmm");
+            var BackupTime = DateTime.Now.ToString("ddMMyyyy HHmmss");
             var CmdBackup = "USE [master];\n";
             var builder = new System.Text.StringBuilder();
             _ = builder.Append(CmdBackup);
@@ -1738,6 +1792,7 @@ WITH
                     if (item.DBName.Equals("master", StringComparison.InvariantCultureIgnoreCase)
                         || item.DBName.Equals("tempdb", StringComparison.InvariantCultureIgnoreCase))
                         continue;
+                    __HandleBackupAutoClean(item);
                     var BackupPath = Path.GetDirectoryName(item.MDFLocation) + $@"\backup\{BackupTime}";
                     _ = Directory.CreateDirectory(BackupPath);
                     _ = builder.Append($@"BACKUP DATABASE [{item.DBName}]
@@ -1746,8 +1801,19 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
                 CmdBackup = builder.ToString();
                 _ = Db.ExecuteNonQuery(CmdBackup);
             }
-            Execute_Reload();
             DialogManager.ShowModalMessageExternal(MetroWnd, "Backups done", "Backups successful created");
+        }
+
+        private void __HandleBackupAutoClean(DBStateEntry item)
+        {
+            if (!AutoCleanBackups || MaxBackupCount > item.AllBackups.Length)
+                return;
+            var FileInfos = new List<FileInfo>();
+            item.AllBackups.ToList().ForEach(x => FileInfos.Add(new FileInfo(x)));
+            FileInfos = FileInfos.OrderBy(x => x.CreationTime.Date).ThenBy(y => y.CreationTime.TimeOfDay).ToList();
+            FileInfos.RemoveFrom(FileInfos.Count + 1 - MaxBackupCount);
+            FileInfos.ForEach(x => File.Delete(x.FullName));
+            ObjectObservation.CleanDirectories($"{Path.GetDirectoryName(item.MDFLocation)}\\backup");
         }
         #endregion
 

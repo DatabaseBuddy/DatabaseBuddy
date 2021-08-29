@@ -109,6 +109,15 @@
                          mah:TextBoxHelper.ClearTextButton="True"
                          mah:TextBoxHelper.AutoWatermark="True"
                          mah:TextBoxHelper.Watermark="Filter"/>
+                <TextBlock Text="{Binding AllDBSize, StringFormat={}All Databases: {0} GB}" 
+                           VerticalAlignment="Center"
+                           Margin="15 0 0 0"/>
+                <TextBlock Text="{Binding AllBackupSize, StringFormat={}All Backups: {0} GB}" 
+                           VerticalAlignment="Center"
+                           Margin="15 0 0 0"/>
+                <TextBlock Text="{Binding AllSize, StringFormat={}Whole Size: {0} GB}" 
+                           VerticalAlignment="Center"
+                           Margin="15 0 0 0"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
                       Grid.Row="2" 
@@ -215,17 +224,18 @@
 
                             <Button Content="Backup"
                              Command="{Binding DataContext.BackupSelectedDataBase,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             CommandParameter="{Binding}"
-                             Margin="0 0 10 0"/>
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                                    CommandParameter="{Binding}"
+                                    Margin="0 0 10 0"/>
                             <Button Content="{Binding RestoreBackupCaption}"
-                             Command="{Binding DataContext.RestoreBackup,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             CommandParameter="{Binding}"
-                             IsEnabled="{Binding CanDBRestore}"
-                             Margin="0 0 10 0"/>
+                                    Command="{Binding DataContext.RestoreBackup,
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding CanDBRestore}"
+                                    Margin="0 0 10 0"
+                                    ToolTip="{Binding RestoreBackupTooltip}"/>
                             <Label Content="{Binding TrackedFileState}"
-                              Margin="0 0 10 0"
+                                   Margin="0 0 10 0"
                                    VerticalAlignment="Center"/>
                             <Path Data="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" 
                                   Fill="Red"
@@ -324,6 +334,7 @@
                                 <RowDefinition />
                                 <RowDefinition />
                                 <RowDefinition />
+                                <RowDefinition />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -348,6 +359,21 @@
                                               Grid.Row="1" 
                                               Grid.Column="1"
                                               VerticalAlignment="Top"/>
+                            <Label Content="Backup auto clean"
+                                   Grid.Row="2"
+                                   Grid.Column="0" />
+                            <CheckBox 
+                                Grid.Row="2"
+                                Grid.Column="1"
+                                IsChecked="{Binding AutoCleanBackups, Mode=TwoWay}"/>
+                            <Label Content="Number of backups to keep"
+                                   Grid.Row="3"
+                                   Grid.Column="0" />
+                            <mah:NumericUpDown Grid.Row="3"
+                                               Grid.Column="1" 
+                                               Minimum="3"
+                                               Value="{Binding MaxBackupCount, Mode=TwoWay}"
+                                               IsEnabled="{Binding AutoCleanBackups}"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="Connection">

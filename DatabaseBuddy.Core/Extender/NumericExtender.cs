@@ -33,6 +33,8 @@ namespace DatabaseBuddy.Core.Extender
 
         public static double ToDoubleValue(this object Value)
         {
+            if (Value == null || (Value is string SValue && SValue.IsNullOrEmpty()))
+                return 1.0;
             return Convert.ToDouble(Value);
         }
         public static int ToInt32Value(this object Value, int DefaultValue = 0)
@@ -57,5 +59,7 @@ namespace DatabaseBuddy.Core.Extender
             => (long)(Value / Math.Pow(10, 6));
         public static long ToByte(this long Value)
             => (long)(Value * Math.Pow(10, 6));
+        public static double ToGigaByte(this long Value)
+            => (double)(Value / Math.Pow(10, 9));
     }
 }
