@@ -542,7 +542,7 @@ namespace DatabaseBuddy.ViewModel
                 }
                 else if (sender is DBStateEntry State)
                 {
-                    if (State.HandleODBCState.Equals("Delete ODBC"))
+                    if (State.HandleODBCState.Equals("Delete ODBC Entry"))
                         __DeleteODBCEntries(new List<DBStateEntry> { State });
                     else
                         __CreateODBCEntries(new List<DBStateEntry> { State });
