@@ -96,7 +96,7 @@
                 </StackPanel>
                 <mah:ToggleSwitch Content="Settings"
                                   Command="{Binding ToggleSettings}"/>
-
+                
             </StackPanel>
             <StackPanel Orientation="Horizontal"                         
                             Grid.Row="1"
@@ -136,7 +136,7 @@
                     </i:EventTrigger>
                 </i:Interaction.Triggers>
                 <ListBox.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu Opened="ContextMenu_Open">
                         <MenuItem Header="Delete"
                         Command="{Binding DeleteSelectedDataBase}"
                         IsEnabled="{Binding RestrictedRights}">

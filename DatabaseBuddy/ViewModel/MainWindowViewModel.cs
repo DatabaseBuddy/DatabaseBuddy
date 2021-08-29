@@ -60,6 +60,7 @@ namespace DatabaseBuddy.ViewModel
         private double m_ScalingValue = 1;
         private static int m_MaxBackupCount;
         private bool m_AutoCleanBackups;
+        public bool SelectionChangeLocked;
         #endregion
 
         #region [Ctor]
@@ -247,6 +248,8 @@ namespace DatabaseBuddy.ViewModel
             get => m_SelectedDB;
             private set
             {
+                if (SelectionChangeLocked)
+                    return;
                 m_SelectedDB = value;
                 OnPropertyChanged(nameof(SelectedDB));
             }
@@ -741,6 +744,7 @@ namespace DatabaseBuddy.ViewModel
         {
             try
             {
+                SelectionChangeLocked = false;
                 if (skipReload && obj == null)
                     return;
                 Db.ExecuteScalar("USE [master] SELECT TOP (1) xserver_name FROM [master].[dbo].[spt_fallback_db]");
