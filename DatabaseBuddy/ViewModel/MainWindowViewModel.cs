@@ -1055,8 +1055,10 @@ namespace DatabaseBuddy.ViewModel
             try
             {
                 if (SelectedDB is DBStateEntry State)
+                {
                     __RunCutLogFile(new List<DBStateEntry> { State });
-                Execute_Reload();
+                    Execute_Reload();
+                }
             }
             catch (Exception ex)
             {
@@ -1763,7 +1765,7 @@ namespace DatabaseBuddy.ViewModel
 
                         builder.Append($@"RESTORE DATABASE [{DataBase.DBName}]
 FROM DISK = N'{DataBase.LastBackupPath}'
-WITH
+WITH REPLACE,
     MOVE '{BackupPrevData["DataFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.mdf',
     MOVE '{BackupPrevData["LogFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.ldf'");
                         Cmd = builder.ToString();
@@ -1895,13 +1897,11 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
                     var OldName = Path.GetFileName(Entry.MDFLocation);
                     var NewName = tmpGuid + OldName;
                     File.Copy(Entry.LDFLocation, $@"{Path.GetDirectoryName(Entry.MDFLocation)}\{NewName}");
-                    File.Delete(Entry.MDFLocation);
-                    File.Delete(Entry.LDFLocation);
+                    __DeleteDataBase(new List<DBStateEntry> { Entry }, true);
                     File.Move($@"{Path.GetDirectoryName(Entry.MDFLocation)}\{NewName}", $@"{Path.GetDirectoryName(Entry.MDFLocation)}\{OldName}");
-                    __DeleteDataBase(new List<DBStateEntry> { Entry }, true, false);
-                    var Cmd = $@"CREATE DATABASE [{Entry.DBName}] 
-    ON (FILENAME = '{Entry.MDFLocation}')
-    FOR ATTACH;";
+                    var Cmd = $@"CREATE DATABASE [{Entry.DBName}] ON
+(FILENAME = N'{Entry.MDFLocation}')
+FOR ATTACH;";
                     Db.ExecuteNonQuery(Cmd);
                 }
             }
