@@ -15,6 +15,7 @@ namespace DatabaseBuddy.Core.Entities
     public DBStateEntryBase()
     {
       m_SystemDatabases = new List<string> { "master", "tempdb", "model", "msdb" };
+      AllBackups = new string[0];
     }
     #endregion
 

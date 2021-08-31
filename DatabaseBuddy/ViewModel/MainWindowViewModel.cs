@@ -295,8 +295,9 @@ namespace DatabaseBuddy.ViewModel
     [DependsUpon(nameof(MultiMode))]
     public Visibility SelectAllVisibility => MultiMode ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility IsAdmin => new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator)
-  ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility IsAdmin => IsAdminMode ? Visibility.Collapsed : Visibility.Visible;
+
+    public bool IsAdminMode => new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
     [DependsUpon(nameof(m_FileTrackingEnabled))]
     public Visibility FileMonitoringVisibility => FileTrackingEnabled ? Visibility.Visible : Visibility.Collapsed;
@@ -720,11 +721,14 @@ namespace DatabaseBuddy.ViewModel
           DBFilter = tmpFilterValue;
         }
         DBEntries = DBEntries.OrderBy(x => x.DBName).ToList();
-        var Directories = new List<string>();
-        DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.LDFLocation)));
-        DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.MDFLocation)));
-        Directories = Directories.Distinct().ToList();
-        Directories.ForEach(x => ObjectObservation.CleanDirectories(x));
+        if (IsAdminMode)
+        {
+          var Directories = new List<string>();
+          DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.LDFLocation)));
+          DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.MDFLocation)));
+          Directories = Directories.Distinct().ToList();
+          Directories.ForEach(x => ObjectObservation.CleanDirectories(x));
+        }
         __OnPropertyChanged();
       }
       catch (Exception ex)
@@ -1850,7 +1854,7 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
 
     private void __HandleBackupAutoClean(DBStateEntry item)
     {
-      if (!AutoCleanBackups || MaxBackupCount > item.AllBackups.Length)
+      if (!AutoCleanBackups || MaxBackupCount > item.AllBackups.Length || !IsAdminMode)
         return;
       var FileInfos = new List<FileInfo>();
       item.AllBackups.ToList().ForEach(x => FileInfos.Add(new FileInfo(x)));
