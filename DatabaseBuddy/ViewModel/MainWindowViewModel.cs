@@ -107,8 +107,6 @@ namespace DatabaseBuddy.ViewModel
     public ICommand BackupSelectedDataBase { get; set; }
     public ICommand RestoreBackup { get; set; }
     public ICommand StartMonitoring { get; set; }
-    public ICommand TakeAllOffline { get; set; }
-    public ICommand TakeAllOnline { get; set; }
     public ICommand BackupAll { get; set; }
     public ICommand RestoreAll { get; set; }
     public ICommand DeleteUnusedFiles { get; set; }
@@ -121,6 +119,8 @@ namespace DatabaseBuddy.ViewModel
     public ICommand IncreaseScaling { get; set; }
     public ICommand DecreaseScaling { get; set; }
     public ICommand ResetScaling { get; set; }
+    public ICommand DeleteAllBackups { get; set; }
+    public ICommand DeleteSelectedDBBackups { get; set; }
 
     #endregion
 
@@ -284,6 +284,7 @@ namespace DatabaseBuddy.ViewModel
     public double AllDBSize => Math.Round(DBEntries.Select(x => x.DataBaseSize).Sum().MegaByteToGigaByte(), 2);
     public double AllBackupSize => Math.Round(DBEntries.Select(x => x.AllBackupSize).Sum().MegaByteToGigaByte(), 2);
     public double AllSize => Math.Round(AllDBSize + AllBackupSize, 2);
+    public int AllBackupCount => DBEntries.Select(x => x.AllBackups.Length).Sum();
 
     [DependsUpon(nameof(UnusedFiles))]
     public string DeleteUnusedFilesCaption => !UnusedFiles.Any() ? "No unused database files" : $"Delete {UnusedFiles.Count} unused database files";
@@ -492,24 +493,10 @@ namespace DatabaseBuddy.ViewModel
     {
       try
       {
-        if (sender is DBStateEntry State)
-        {
-          if (State.IsOnline)
-          {
-            if (MultiMode || State.DBName.Equals("master", StringComparison.InvariantCultureIgnoreCase))
-              return;
-            var DataBaseEntries = new List<DBStateEntry> { State };
-            var Messagetext = $"Are you sure to take offline the following databases?\n";
-            DataBaseEntries.ForEach(x => Messagetext += $"-{x.DBName}\n");
-            var KillResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm taking offline", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
-            if (KillResult == MessageDialogResult.Canceled || KillResult == MessageDialogResult.Negative)
-              return;
-            else if (KillResult == MessageDialogResult.Affirmative)
-              __KillConnections(DataBaseEntries);
-          }
-          else
-            __ActivateConnections(new List<DBStateEntry> { State });
-        }
+        if (MultiMode && SelectedDbs.Any())
+          __SwitchDBStatus(SelectedDbs);
+        else if (SelectedDB != null)
+          __SwitchDBStatus(new List<DBStateEntry> { SelectedDB });
       }
       catch (Exception ex)
       {
@@ -560,40 +547,6 @@ namespace DatabaseBuddy.ViewModel
         __ThrowMessage($"{nameof(Execute_GenerateODBCEntry)} failed!", ex.ToString());
       }
 
-    }
-    #endregion
-
-    #region [Execute_TakeAllOffline]
-    public void Execute_TakeAllOffline(object obj = null)
-    {
-      try
-      {
-        var DataBaseEntries = __LoadDataBases(eDATABASESTATE.ONLINE);
-        var Messagetext = $"Are you sure to take offline the following databases?\n";
-        DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
-        var KillResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm taking offline", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
-        if (KillResult == MessageDialogResult.Canceled || KillResult == MessageDialogResult.Negative)
-          return;
-        __KillConnections(DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList());
-      }
-      catch (Exception ex)
-      {
-        __ThrowMessage($"{nameof(Execute_TakeAllOffline)} failed!", ex.ToString());
-      }
-    }
-    #endregion
-
-    #region [Execute_TakeAllOnline]
-    public void Execute_TakeAllOnline(object obj = null)
-    {
-      try
-      {
-        __ActivateConnections(__LoadDataBases(eDATABASESTATE.OFFLINE));
-      }
-      catch (Exception ex)
-      {
-        __ThrowMessage($"{nameof(Execute_TakeAllOnline)} failed!", ex.ToString());
-      }
     }
     #endregion
 
@@ -709,6 +662,8 @@ namespace DatabaseBuddy.ViewModel
     {
       try
       {
+        if (MultiMode && SelectedDbs.Any())
+          __BackupDatabases(SelectedDbs);
         if (sender is DBStateEntry State)
           __BackupDatabases(new List<DBStateEntry> { State });
       }
@@ -764,6 +719,12 @@ namespace DatabaseBuddy.ViewModel
           var tmpFilterValue = DBFilter;
           DBFilter = tmpFilterValue;
         }
+        DBEntries = DBEntries.OrderBy(x => x.DBName).ToList();
+        var Directories = new List<string>();
+        DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.LDFLocation)));
+        DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.MDFLocation)));
+        Directories = Directories.Distinct().ToList();
+        Directories.ForEach(x => ObjectObservation.CleanDirectories(x));
         __OnPropertyChanged();
       }
       catch (Exception ex)
@@ -784,7 +745,7 @@ namespace DatabaseBuddy.ViewModel
           return;
         var Messagetext = $"Are you sure to delete the following {UnusedFiles.Count} unused Files?\n";
         UnusedFiles.ForEach(x => Messagetext += $"-{x}\n");
-        var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+        var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
         if (DeleteResult == MessageDialogResult.Canceled || DeleteResult == MessageDialogResult.Negative)
           return;
         else
@@ -873,18 +834,6 @@ namespace DatabaseBuddy.ViewModel
     [DependsUpon(nameof(DBEntries))]
     [DependsUpon(nameof(ServerName))]
     public bool CanExecute_DeleteUnusedFiles() => __CanExecute_Common() && UnusedFiles.Any() && __IsLocal();
-    #endregion
-
-    #region [CanExecute_TakeAllOnline]
-    [DependsUpon(nameof(DBEntries))]
-    [DependsUpon(nameof(ServerName))]
-    public bool CanExecute_TakeAllOnline() => __CanExecute_Common();
-    #endregion
-
-    #region [CanExecute_TakeAllOffline]
-    [DependsUpon(nameof(DBEntries))]
-    [DependsUpon(nameof(ServerName))]
-    public bool CanExecute_TakeAllOffline() => __CanExecute_Common();
     #endregion
 
     #region [CanExecute_RestoreMultipleBaks]
@@ -1044,7 +993,8 @@ namespace DatabaseBuddy.ViewModel
     {
       try
       {
-        ListBoxDbs?.SelectAll();
+        if (MultiMode)
+          ListBoxDbs?.SelectAll();
       }
       catch (Exception ex)
       {
@@ -1174,6 +1124,45 @@ namespace DatabaseBuddy.ViewModel
     public void Execute_ResetScaling(object obj = null) => ScalingValue = 1;
     #endregion
 
+    #region [Execute_DeleteAllBackups]
+    public void Execute_DeleteAllBackups(object obj = null)
+    {
+      try
+      {
+        __DeleteAllBackups(DBEntries);
+      }
+      catch (Exception ex)
+      {
+        __ThrowMessage($"{nameof(Execute_DeleteAllBackups)} failed!", ex.ToString());
+      }
+      finally
+      {
+        Execute_Reload();
+      }
+    }
+    #endregion
+
+    #region [Execute_DeleteSelectedDBBackups]
+    public void Execute_DeleteSelectedDBBackups(object obj = null)
+    {
+      try
+      {
+        if (MultiMode && SelectedDbs.Any())
+          __DeleteAllBackups(SelectedDbs);
+        else if (SelectedDB != null)
+          __DeleteAllBackups(new List<DBStateEntry> { SelectedDB });
+      }
+      catch (Exception ex)
+      {
+        __ThrowMessage($"{nameof(Execute_DeleteSelectedDBBackups)} failed!", ex.ToString());
+      }
+      finally
+      {
+        Execute_Reload();
+      }
+    }
+    #endregion
+
     #region - public methods -
     #region [GetRegistryValue]
     public static string GetRegistryValue(string key)
@@ -1199,12 +1188,57 @@ namespace DatabaseBuddy.ViewModel
 
     #region - private methods -
 
+    #region [__SwitchDBStatus]
+    private void __SwitchDBStatus(List<DBStateEntry> Entries, bool killOnly = false)
+    {
+      var Messagetext = $"Are you sure to take offline the following databases?\n";
+      Entries.ForEach(x => Messagetext += $"-{x.DBName}\n");
+      if (SelectedDB.IsOnline && Entries.Any(x => x.IsOnline))
+      {
+        var KillResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm taking offline", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
+        if (KillResult == MessageDialogResult.Canceled || KillResult == MessageDialogResult.Negative)
+          return;
+      }
+      foreach (var State in Entries)
+      {
+        if (State.IsOnline)
+        {
+          if (State.DBName.Equals("master", StringComparison.InvariantCultureIgnoreCase))
+            return;
+          __KillConnections(new List<DBStateEntry> { State });
+
+        }
+        else
+        {
+          if (!killOnly)
+            __ActivateConnections(new List<DBStateEntry> { State });
+        }
+      }
+    }
+    #endregion
+
+    #region [__DeleteAllBackups]
+    private void __DeleteAllBackups(List<DBStateEntry> Entries)
+    {
+      var Messagetext = $"Are you sure to delete ALL Backups for the following Databases?\n";
+      Entries.Where(y => y.AllBackups.Length > 0).ToList().ForEach(x => Messagetext += $"-{x.DBName} ({x.AllBackups.Length} Backup/s)\n");
+      if (Entries.Count == DBEntries.Count)
+        Messagetext = "Are you sure to delete the Backups for all Databases?";
+      var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete Backups", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
+      if (DeleteResult == MessageDialogResult.Canceled || DeleteResult == MessageDialogResult.Negative)
+        return;
+      else if (DeleteResult == MessageDialogResult.Affirmative)
+        Entries.SelectMany(x => x.AllBackups).ToList().ForEach(b => File.Delete(b));
+    }
+    #endregion
+
     #region [__OnPropertyChanged]
     private void __OnPropertyChanged()
     {
       OnPropertyChanged(nameof(AllDBSize));
       OnPropertyChanged(nameof(AllBackupSize));
       OnPropertyChanged(nameof(AllSize));
+      OnPropertyChanged(nameof(AllBackupCount));
     }
     #endregion
 
@@ -1642,7 +1676,7 @@ namespace DatabaseBuddy.ViewModel
       DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName}\n");
       if (!silentDelete)
       {
-        var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+        var DeleteResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm delete", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
         if (DeleteResult == MessageDialogResult.Canceled || DeleteResult == MessageDialogResult.Negative)
           return;
       }
@@ -1750,7 +1784,7 @@ namespace DatabaseBuddy.ViewModel
         DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName} Last Backup {x.LastBackupTime}\n");
         if (!SilentRestore)
         {
-          var RestoreBackupResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm restore", Messagetext, MessageDialogStyle.AffirmativeAndNegative/*, MessageSettings*/);
+          var RestoreBackupResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm restore", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
           if (RestoreBackupResult == MessageDialogResult.Canceled || RestoreBackupResult == MessageDialogResult.Negative)
             return;
         }
@@ -2104,8 +2138,6 @@ CREATE DATABASE [{Entry.CloneName}]
       BackupSelectedDataBase = new DelegateCommand<object>(Execute_BackupSelectedDataBase);
       RestoreBackup = new DelegateCommand<object>(Execute_RestoreBackup);
       StartMonitoring = new DelegateCommand<object>(Execute_StartMonitoring);
-      TakeAllOffline = new DelegateCommand<object>(Execute_TakeAllOffline);
-      TakeAllOnline = new DelegateCommand<object>(Execute_TakeAllOnline);
       BackupAll = new DelegateCommand<object>(Execute_BackupAll);
       RestoreAll = new DelegateCommand<object>(Execute_RestoreAll);
       DeleteUnusedFiles = new DelegateCommand<object>(Execute_DeleteUnusedFiles);
@@ -2117,6 +2149,8 @@ CREATE DATABASE [{Entry.CloneName}]
       IncreaseScaling = new DelegateCommand<object>(Execute_IncreaseScaling);
       DecreaseScaling = new DelegateCommand<object>(Execute_DecreaseScaling);
       ResetScaling = new DelegateCommand<object>(Execute_ResetScaling);
+      DeleteAllBackups = new DelegateCommand<object>(Execute_DeleteAllBackups);
+      DeleteSelectedDBBackups = new DelegateCommand<object>(Execute_DeleteSelectedDBBackups);
     }
     #endregion
 

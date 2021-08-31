@@ -111,9 +111,15 @@
                 <TextBlock Text="{Binding AllDBSize, StringFormat={}All Databases: {0} GB}" 
                            VerticalAlignment="Center"
                            Margin="15 0 0 0"/>
-                <TextBlock Text="{Binding AllBackupSize, StringFormat={}All Backups: {0} GB}" 
-                           VerticalAlignment="Center"
-                           Margin="15 0 0 0"/>
+                <TextBlock VerticalAlignment="Center"
+                           Margin="15 0 0 0">
+                    <TextBlock.Text>
+                        <MultiBinding StringFormat="{}All Backups ({0}): {1} GB">
+                            <Binding Path="AllBackupCount" />
+                            <Binding Path="AllBackupSize"/>
+                        </MultiBinding>
+                    </TextBlock.Text>
+                </TextBlock>
                 <TextBlock Text="{Binding AllSize, StringFormat={}Whole Size: {0} GB}" 
                            VerticalAlignment="Center"
                            Margin="15 0 0 0"/>
@@ -127,6 +133,10 @@
                       SelectionMode="{Binding ListBoxSelectionMode}"
                       ItemsSource="{Binding DBEntries}"
                       ScrollViewer.VerticalScrollBarVisibility="Visible">
+                <ListBox.InputBindings>
+                    <KeyBinding Modifiers="Ctrl" Key="A"
+                                Command="{Binding SelectAll}" />
+                </ListBox.InputBindings>
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseEnter">
                         <i:InvokeCommandAction Command="{Binding GotLbFocus}"
@@ -140,6 +150,13 @@
                         Command="{Binding DeleteSelectedDataBase}"
                         IsEnabled="{Binding RestrictedRights}">
 
+                            <MenuItem.Icon>
+                                <iconPacks:PackIconRemixIcon Kind="DeleteBin2Line"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Delete All Backups"
+                        Command="{Binding DeleteSelectedDBBackups}"
+                        IsEnabled="{Binding RestrictedRights}">
                             <MenuItem.Icon>
                                 <iconPacks:PackIconRemixIcon Kind="DeleteBin2Line"/>
                             </MenuItem.Icon>
@@ -258,23 +275,6 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Button HorizontalContentAlignment="Left"
-                       Margin="10 0 10 0" 
-                       Grid.Column="0"
-                       Command="{Binding TakeAllOffline}"
-                       Height="Auto">
-                    <Button.Content>
-                        <TextBlock>
-                            Take OFFLINE ALL Databases
-                            <LineBreak/>(Active Connections will be killed too)
-                        </TextBlock>
-                    </Button.Content>
-                </Button>
-                <Button HorizontalContentAlignment="Left"
-                       Margin="0 0 10 0"
-                       Content="Take ONLINE ALL Databases" 
-                       Grid.Column="1"     
-                       Command="{Binding TakeAllOnline}" />
                 <Button HorizontalContentAlignment="Left" 
                        Margin="10 10 10 0"
                        Content="Backup ALL Databases" 
@@ -333,6 +333,7 @@
                                 <RowDefinition />
                                 <RowDefinition />
                                 <RowDefinition />
+                                <RowDefinition />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -360,8 +361,7 @@
                             <Label Content="Backup auto clean"
                                    Grid.Row="2"
                                    Grid.Column="0" />
-                            <CheckBox 
-                                Grid.Row="2"
+                            <CheckBox Grid.Row="2"
                                 Grid.Column="1"
                                 IsChecked="{Binding AutoCleanBackups, Mode=TwoWay}"/>
                             <Label Content="Number of backups to keep"
@@ -372,6 +372,11 @@
                                                Minimum="3"
                                                Value="{Binding MaxBackupCount, Mode=TwoWay}"
                                                IsEnabled="{Binding AutoCleanBackups}"/>
+                            <Button Content="Delete All Backups"
+                                    Grid.Row="4" 
+                                    Grid.ColumnSpan="2"
+                                    Margin="5 5 0 0"
+                                    Command="{Binding DeleteAllBackups}"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="Connection">
@@ -475,13 +480,15 @@
                                       SelectedItem="{Binding SelectedTheme}"/>
                             <Label Content="Scalingvalue"
                                    Grid.Row="2"
-                                   Grid.Column="0"/>
+                                   Grid.Column="0"
+                                   Margin="0 5 0 0" />
                             <mah:NumericUpDown Grid.Row="2"
                                                Grid.Column="1"
                                                Minimum="0.05"
                                                Maximum="5.0"
                                                Interval="0.05"
-                                               Value="{Binding ScalingValue, Mode=TwoWay}"/>
+                                               Value="{Binding ScalingValue, Mode=TwoWay}"
+                                               Margin="0 5 0 0"/>
                         </Grid>
                     </TabItem>
                 </TabControl>
