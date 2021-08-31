@@ -81,7 +81,7 @@ namespace DatabaseBuddy.Core.Entities
         #endregion
 
         #region [CutLogfileText]
-        public string CutLogfileText => $"Cut Log Size: {LDFSize.ToMegabyte()} MB";
+        public string CutLogfileText => $"Cut Log Size: {LDFSize.ByteToMegabyte()} MB";
         #endregion
 
         #region [RestrictedRights]
@@ -109,11 +109,11 @@ namespace DatabaseBuddy.Core.Entities
         #endregion
 
         #region [DataBaseSize]
-        public long DataBaseSize => MDFSize.ToMegabyte() + LDFSize.ToMegabyte();
+        public long DataBaseSize => MDFSize.ByteToMegabyte() + LDFSize.ByteToMegabyte();
         #endregion
 
         #region [InformationString]
-        public string InformationString => $"Name: {DBName}\nData File: {MDFSize.ToMegabyte()} MB \nLog Size: {LDFSize.ToMegabyte()} MB \nSum: {DataBaseSize} MB" +
+        public string InformationString => $"Name: {DBName}\nData File: {MDFSize.ByteToMegabyte()} MB \nLog Size: {LDFSize.ByteToMegabyte()} MB \nSum: {DataBaseSize} MB" +
                 $"\nData Location: {MDFLocation} \nLog Location: {LDFLocation}";
         #endregion
 
@@ -133,7 +133,7 @@ namespace DatabaseBuddy.Core.Entities
         #endregion
 
         #region [RestoreBackupTooltip]
-        public string RestoreBackupTooltip => $"{AllBackups.Length} Backups found ({Math.Round(AllBackupSize.ToByte().ToGigaByte(), 2)} GB)";
+        public string RestoreBackupTooltip => $"{AllBackups.Length} Backups found ({Math.Round(AllBackupSize.MegaByteToGigaByte(), 2)} GB)";
         #endregion
 
         #endregion

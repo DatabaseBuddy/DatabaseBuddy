@@ -31,12 +31,36 @@ namespace DatabaseBuddy.Core.Extender
             return ToLongValue(Value, 0);
         }
 
-        public static double ToDoubleValue(this object Value)
+        #region [ToDouble]
+        public static double ToDoubleValue(this double Value)
         {
-            if (Value == null || (Value is string SValue && SValue.IsNullOrEmpty()))
-                return 1.0;
-            return Convert.ToDouble(Value);
+            return Value;
         }
+        public static double ToDoubleValue(this double? Value)
+        {
+            if (!Value.HasValue)
+                return 0;
+
+            return Value.Value;
+        }
+        public static double ToDoubleValue(this Object Value, double DefaultValue)
+        {
+            if (Value == null || DBNull.Value == Value)
+                return DefaultValue;
+
+            double Result;
+
+            if (double.TryParse(Value.ToString(), out Result))
+                return Result;
+            else
+                return DefaultValue;
+        }
+        public static double ToDoubleValue(this Object Value)
+        {
+            return ToDoubleValue(Value, 0.0d);
+        }
+        #endregion
+
         public static int ToInt32Value(this object Value, int DefaultValue = 0)
         {
             if (Value == null || DBNull.Value == Value)
@@ -55,11 +79,11 @@ namespace DatabaseBuddy.Core.Extender
             }
             catch { return DefaultValue; }
         }
-        public static long ToMegabyte(this long Value)
+        public static long ByteToMegabyte(this long Value)
             => (long)(Value / Math.Pow(10, 6));
-        public static long ToByte(this long Value)
+        public static long MegaByteToByte(this long Value)
             => (long)(Value * Math.Pow(10, 6));
-        public static double ToGigaByte(this long Value)
-            => (double)(Value / Math.Pow(10, 9));
+        public static double MegaByteToGigaByte(this long Value)
+            => (double)(Value / Math.Pow(10, 3));
     }
 }

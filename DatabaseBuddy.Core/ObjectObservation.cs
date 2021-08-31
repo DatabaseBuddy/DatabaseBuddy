@@ -27,7 +27,7 @@ namespace DatabaseBuddy.Core
         public static string[] GetBackups(this DBStateEntryBase Entry)
         {
             var Backups = Directory.GetFiles($"{Path.GetDirectoryName(Entry.MDFLocation)}", $"*{Entry.DBName}.bak", SearchOption.AllDirectories);
-            Entry.AllBackupSize = GetAllBackupFileSize(Backups).ToMegabyte();
+            Entry.AllBackupSize = GetAllBackupFileSize(Backups).ByteToMegabyte();
             return Backups;
         }
 

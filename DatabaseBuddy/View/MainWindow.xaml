@@ -96,7 +96,7 @@
                 </StackPanel>
                 <mah:ToggleSwitch Content="Settings"
                                   Command="{Binding ToggleSettings}"/>
-                
+
             </StackPanel>
             <StackPanel Orientation="Horizontal"                         
                             Grid.Row="1"
@@ -310,13 +310,12 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="22" />
+                <RowDefinition/>
             </Grid.RowDefinitions>
             <Label x:Name="tbInformations"
              Grid.Column="2"
              Content ="{Binding SystemInformation}"
-             HorizontalAlignment="Right" 
-             FontSize="10" />
+             HorizontalAlignment="Right"/>
         </Grid>
     </Grid>
     <mah:MetroWindow.Flyouts>
@@ -475,7 +474,15 @@
                                       Grid.Column="1"
                                       ItemsSource="{Binding Themes}"
                                       SelectedItem="{Binding SelectedTheme}"/>
-
+                            <Label Content="Scalingvalue"
+                                   Grid.Row="2"
+                                   Grid.Column="0"/>
+                            <mah:NumericUpDown Grid.Row="2"
+                                               Grid.Column="1"
+                                               Minimum="0.05"
+                                               Maximum="5.0"
+                                               Interval="0.05"
+                                               Value="{Binding ScalingValue, Mode=TwoWay}"/>
                         </Grid>
                     </TabItem>
                 </TabControl>
