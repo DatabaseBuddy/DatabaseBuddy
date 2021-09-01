@@ -440,8 +440,8 @@ namespace DatabaseBuddy.ViewModel
       }
       set
       {
-        m_MaxBackupCount = value;
-        __WriteRegistryValue(nameof(MaxBackupCount), value.ToString());
+        m_MaxBackupCount = value >= 3 ? value : 3;
+        __WriteRegistryValue(nameof(MaxBackupCount), value >= 3 ? value.ToString() : "3");
       }
     }
 
