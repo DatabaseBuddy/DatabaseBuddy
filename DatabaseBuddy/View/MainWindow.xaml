@@ -105,7 +105,7 @@
                          Width="300"
                          Height="22"
                          TextChanged="__FilterChanged"
-                         mah:TextBoxHelper.ClearTextButton="True"
+                         mah:TextBoxHelper.ClearTextButton="{Binding FilterClearButtonVisibility}"
                          mah:TextBoxHelper.AutoWatermark="True"
                          mah:TextBoxHelper.Watermark="Filter"/>
                 <TextBlock Text="{Binding AllDBSize, StringFormat={}All Databases: {0} GB}" 
@@ -399,7 +399,7 @@
                                     Grid.Row="0"
                                     Grid.Column="0"/>
                             <TextBox Height="22"
-                                     mah:TextBoxHelper.ClearTextButton="True"
+                                     mah:TextBoxHelper.ClearTextButton="{Binding ServerNameClearButtonVisibility}"
                                      mah:TextBoxHelper.AutoWatermark="True"
                                      mah:TextBoxHelper.Watermark="Servername"
                                      Text="{Binding ServerName, Mode=TwoWay}"

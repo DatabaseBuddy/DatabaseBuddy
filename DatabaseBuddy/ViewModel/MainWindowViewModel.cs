@@ -142,8 +142,12 @@ namespace DatabaseBuddy.ViewModel
           ListBoxDbs.ItemsSource = DBEntries;
         else
           ListBoxDbs.ItemsSource = DBEntries.Where(x => x.DBName.Contains(value.ToString(), StringComparison.InvariantCultureIgnoreCase));
+        OnPropertyChanged(nameof(FilterClearButtonVisibility));
       }
     }
+
+    public bool FilterClearButtonVisibility => DBFilter.IsNotNullOrEmpty();
+    public bool ServerNameClearButtonVisibility => ServerName.IsNotNullOrEmpty();
 
     public bool FileTrackingEnabled
     {
@@ -365,6 +369,7 @@ namespace DatabaseBuddy.ViewModel
         m_Server = value?.Trim() ?? "localhost";
         OnPropertyChanged(nameof(ServerName));
         OnPropertyChanged(nameof(SystemInformation));
+        OnPropertyChanged(nameof(ServerNameClearButtonVisibility));
       }
     }
 
