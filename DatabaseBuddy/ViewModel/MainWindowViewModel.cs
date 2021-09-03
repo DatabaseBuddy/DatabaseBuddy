@@ -285,8 +285,8 @@ namespace DatabaseBuddy.ViewModel
       }
     }
 
-    public double AllDBSize => Math.Round(DBEntries.Select(x => x.DataBaseSize).Sum().MegaByteToGigaByte(), 2);
-    public double AllBackupSize => Math.Round(DBEntries.Select(x => x.AllBackupSize).Sum().MegaByteToGigaByte(), 2);
+    public double AllDBSize => DBEntries.Select(x => x.DataBaseSize).Sum().ByteToGigabyte();
+    public double AllBackupSize => DBEntries.Select(x => x.AllBackupSize).Sum();
     public double AllSize => Math.Round(AllDBSize + AllBackupSize, 2);
     public int AllBackupCount => DBEntries.Select(x => x.AllBackups.Length).Sum();
 
