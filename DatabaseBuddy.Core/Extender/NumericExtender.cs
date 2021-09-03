@@ -17,11 +17,6 @@ namespace DatabaseBuddy.Core.Extender
       catch { return DefaultValue; }
     }
 
-    public static long ToLongValue(this long Value)
-    {
-      return Value;
-    }
-
     public static long ToLongValue(this long? Value)
     {
       return !Value.HasValue ? 0 : Value.Value;
