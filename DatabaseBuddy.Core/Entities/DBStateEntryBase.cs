@@ -1,8 +1,6 @@
-﻿using System;
+﻿using DatabaseBuddy.Core.Extender;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DatabaseBuddy.Core.Entities
 {
@@ -17,6 +15,7 @@ namespace DatabaseBuddy.Core.Entities
     public DBStateEntryBase()
     {
       m_SystemDatabases = new List<string> { "master", "tempdb", "model", "msdb" };
+      AllBackups = new string[0];
     }
     #endregion
 
@@ -46,6 +45,10 @@ namespace DatabaseBuddy.Core.Entities
     public string LastBackupTime { get; set; }
     #endregion
 
+    #region [AllBackups]
+    public string[] AllBackups { get; set; }
+    #endregion
+
     #region [LDFLocation]
     public string LDFLocation { get; set; }
     #endregion
@@ -62,6 +65,10 @@ namespace DatabaseBuddy.Core.Entities
     public long MDFSize => this.GetMDFFileSize();
     #endregion
 
+    #region AllBackupSize
+    public double AllBackupSize { get; set; }
+    #endregion
+
     #region [HasODBCEntry]
     public bool HasODBCEntry { get; set; }
     #endregion
@@ -75,7 +82,7 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [CutLogfileText]
-    public string CutLogfileText => $"Cut Log Size: {LDFSize} MB";
+    public string CutLogfileText => $"Cut Log Size: {LDFSize.ByteToMegabyte()} MB";
     #endregion
 
     #region [RestrictedRights]
@@ -107,7 +114,7 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [InformationString]
-    public string InformationString => $"Name: {DBName}\nData File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize} MB" +
+    public string InformationString => $"Name: {DBName}\nData File: {MDFSize.ByteToMegabyte()} MB \nLog Size: {LDFSize.ByteToMegabyte()} MB \nSum: {DataBaseSize.ByteToMegabyte()} MB" +
             $"\nData Location: {MDFLocation} \nLog Location: {LDFLocation}";
     #endregion
 
@@ -124,6 +131,11 @@ namespace DatabaseBuddy.Core.Entities
         return "Found no Backup";
       }
     }
+    #endregion
+
+    #region [RestoreBackupTooltip]
+    public string RestoreBackupTooltip => AllBackups.IsNull() || AllBackups.Length == 0 ? "No Backups found"
+  : $"{AllBackups.Length} Backups found ({AllBackupSize} GB)";
     #endregion
 
     #endregion

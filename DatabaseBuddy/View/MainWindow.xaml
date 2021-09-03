@@ -4,18 +4,19 @@
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-                  xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity" 
-                  xmlns:local="clr-namespace:DatabaseBuddy.View.DataElements"
+                  xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   mc:Ignorable="d"
-        Title="DatabaseBuddy" Height="450"
-        Width="600"
-        WindowStartupLocation="CenterScreen"
-        WindowState="Maximized"
-        Loaded="__WindowLoaded_Start">
-    <mah:MetroWindow.Resources>
-        <local:Forms x:Key="Images" />
-    </mah:MetroWindow.Resources>
+                  Title="DatabaseBuddy" Height="450"
+                  Width="600"
+                  WindowStartupLocation="CenterScreen"
+                  WindowState="Maximized"
+                  Loaded="__WindowLoaded_Start">
+    <mah:MetroWindow.InputBindings>
+        <KeyBinding Modifiers="Ctrl" Key="OemPlus" Command="{Binding IncreaseScaling}"/>
+        <KeyBinding Modifiers="Ctrl" Key="OemMinus" Command="{Binding DecreaseScaling}"/>
+        <KeyBinding Modifiers="Ctrl" Key="D0" Command="{Binding ResetScaling}"/>
+    </mah:MetroWindow.InputBindings>
     <Grid x:Name="MainGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -30,12 +31,11 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition />
+                <RowDefinition Height="1*"/>
                 <RowDefinition Height="2*"/>
+                <RowDefinition Height="16*"/>
                 <RowDefinition Height="4*"/>
-                <RowDefinition Height="2*"/>
             </Grid.RowDefinitions>
-
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Grid.Row="0" Margin="10 0 0 0">
                 <Label Content="Databases"
                         Height="30"
@@ -105,9 +105,24 @@
                          Width="300"
                          Height="22"
                          TextChanged="__FilterChanged"
-                         mah:TextBoxHelper.ClearTextButton="True"
+                         mah:TextBoxHelper.ClearTextButton="{Binding FilterClearButtonVisibility}"
                          mah:TextBoxHelper.AutoWatermark="True"
                          mah:TextBoxHelper.Watermark="Filter"/>
+                <TextBlock Text="{Binding AllDBSize, StringFormat={}All Databases: {0} GB}" 
+                           VerticalAlignment="Center"
+                           Margin="15 0 0 0"/>
+                <TextBlock VerticalAlignment="Center"
+                           Margin="15 0 0 0">
+                    <TextBlock.Text>
+                        <MultiBinding StringFormat="{}All Backups ({0}): {1} GB">
+                            <Binding Path="AllBackupCount" />
+                            <Binding Path="AllBackupSize"/>
+                        </MultiBinding>
+                    </TextBlock.Text>
+                </TextBlock>
+                <TextBlock Text="{Binding AllSize, StringFormat={}Whole Size: {0} GB}" 
+                           VerticalAlignment="Center"
+                           Margin="15 0 0 0"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
                       Grid.Row="2" 
@@ -118,6 +133,10 @@
                       SelectionMode="{Binding ListBoxSelectionMode}"
                       ItemsSource="{Binding DBEntries}"
                       ScrollViewer.VerticalScrollBarVisibility="Visible">
+                <ListBox.InputBindings>
+                    <KeyBinding Modifiers="Ctrl" Key="A"
+                                Command="{Binding SelectAll}" />
+                </ListBox.InputBindings>
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="MouseEnter">
                         <i:InvokeCommandAction Command="{Binding GotLbFocus}"
@@ -126,11 +145,18 @@
                     </i:EventTrigger>
                 </i:Interaction.Triggers>
                 <ListBox.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu Opened="ContextMenu_Open">
                         <MenuItem Header="Delete"
                         Command="{Binding DeleteSelectedDataBase}"
                         IsEnabled="{Binding RestrictedRights}">
 
+                            <MenuItem.Icon>
+                                <iconPacks:PackIconRemixIcon Kind="DeleteBin2Line"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Delete All Backups"
+                        Command="{Binding DeleteSelectedDBBackups}"
+                        IsEnabled="{Binding RestrictedRights}">
                             <MenuItem.Icon>
                                 <iconPacks:PackIconRemixIcon Kind="DeleteBin2Line"/>
                             </MenuItem.Icon>
@@ -214,17 +240,18 @@
 
                             <Button Content="Backup"
                              Command="{Binding DataContext.BackupSelectedDataBase,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             CommandParameter="{Binding}"
-                             Margin="0 0 10 0"/>
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                                    CommandParameter="{Binding}"
+                                    Margin="0 0 10 0"/>
                             <Button Content="{Binding RestoreBackupCaption}"
-                             Command="{Binding DataContext.RestoreBackup,
-                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                             CommandParameter="{Binding}"
-                             IsEnabled="{Binding CanDBRestore}"
-                             Margin="0 0 10 0"/>
+                                    Command="{Binding DataContext.RestoreBackup,
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding CanDBRestore}"
+                                    Margin="0 0 10 0"
+                                    ToolTip="{Binding RestoreBackupTooltip}"/>
                             <Label Content="{Binding TrackedFileState}"
-                              Margin="0 0 10 0"
+                                   Margin="0 0 10 0"
                                    VerticalAlignment="Center"/>
                             <Path Data="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" 
                                   Fill="Red"
@@ -237,8 +264,8 @@
                 </ListBox.ItemTemplate>
             </ListBox>
             <Grid Grid.Row="3"
-            Grid.ColumnSpan="2"
-            VerticalAlignment="Top">
+                  Grid.ColumnSpan="2"
+                  VerticalAlignment="Bottom">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                     <ColumnDefinition/>
@@ -248,23 +275,6 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Button HorizontalContentAlignment="Left"
-                       Margin="10 0 10 0" 
-                       Grid.Column="0"
-                       Command="{Binding TakeAllOffline}"
-                       Height="Auto">
-                    <Button.Content>
-                        <TextBlock>
-                            Take OFFLINE ALL Databases
-                            <LineBreak/>(Active Connections will be killed too)
-                        </TextBlock>
-                    </Button.Content>
-                </Button>
-                <Button HorizontalContentAlignment="Left"
-                       Margin="0 0 10 0"
-                       Content="Take ONLINE ALL Databases" 
-                       Grid.Column="1"     
-                       Command="{Binding TakeAllOnline}" />
                 <Button HorizontalContentAlignment="Left" 
                        Margin="10 10 10 0"
                        Content="Backup ALL Databases" 
@@ -299,13 +309,12 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="22" />
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Label x:Name="tbInformations"
              Grid.Column="2"
              Content ="{Binding SystemInformation}"
-             HorizontalAlignment="Right" 
-             FontSize="10" />
+             HorizontalAlignment="Right"/>
         </Grid>
     </Grid>
     <mah:MetroWindow.Flyouts>
@@ -320,6 +329,8 @@
                     <TabItem Header="General">
                         <Grid VerticalAlignment="Top">
                             <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition />
                                 <RowDefinition />
                                 <RowDefinition />
                                 <RowDefinition />
@@ -347,6 +358,25 @@
                                               Grid.Row="1" 
                                               Grid.Column="1"
                                               VerticalAlignment="Top"/>
+                            <Label Content="Backup auto clean"
+                                   Grid.Row="2"
+                                   Grid.Column="0" />
+                            <CheckBox Grid.Row="2"
+                                Grid.Column="1"
+                                IsChecked="{Binding AutoCleanBackups, Mode=TwoWay}"/>
+                            <Label Content="Number of backups to keep"
+                                   Grid.Row="3"
+                                   Grid.Column="0" />
+                            <mah:NumericUpDown Grid.Row="3"
+                                               Grid.Column="1" 
+                                               Minimum="3"
+                                               Value="{Binding MaxBackupCount, Mode=TwoWay}"
+                                               IsEnabled="{Binding AutoCleanBackups}"/>
+                            <Button Content="Delete All Backups"
+                                    Grid.Row="4" 
+                                    Grid.ColumnSpan="2"
+                                    Margin="5 5 0 0"
+                                    Command="{Binding DeleteAllBackups}"/>
                         </Grid>
                     </TabItem>
                     <TabItem Header="Connection">
@@ -369,7 +399,7 @@
                                     Grid.Row="0"
                                     Grid.Column="0"/>
                             <TextBox Height="22"
-                                     mah:TextBoxHelper.ClearTextButton="True"
+                                     mah:TextBoxHelper.ClearTextButton="{Binding ServerNameClearButtonVisibility}"
                                      mah:TextBoxHelper.AutoWatermark="True"
                                      mah:TextBoxHelper.Watermark="Servername"
                                      Text="{Binding ServerName, Mode=TwoWay}"
@@ -448,7 +478,17 @@
                                       Grid.Column="1"
                                       ItemsSource="{Binding Themes}"
                                       SelectedItem="{Binding SelectedTheme}"/>
-
+                            <Label Content="Scalingvalue"
+                                   Grid.Row="2"
+                                   Grid.Column="0"
+                                   Margin="0 5 0 0" />
+                            <mah:NumericUpDown Grid.Row="2"
+                                               Grid.Column="1"
+                                               Minimum="0.05"
+                                               Maximum="5.0"
+                                               Interval="0.05"
+                                               Value="{Binding ScalingValue, Mode=TwoWay}"
+                                               Margin="0 5 0 0"/>
                         </Grid>
                     </TabItem>
                 </TabControl>
