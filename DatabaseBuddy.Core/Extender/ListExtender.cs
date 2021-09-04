@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 
 namespace DatabaseBuddy.Core.Extender
 {
-    public static class ListExtender
+  public static class ListExtender
+  {
+    public static void RemoveFrom<T>(this List<T> lst, int from)
     {
-        public static void RemoveFrom<T>(this List<T> lst, int from)
-        {
-            lst.RemoveRange(from, lst.Count - from);
-        }
+      if (from < 0) return;
+      lst.RemoveRange(from, lst.Count - from);
     }
+  }
 }
