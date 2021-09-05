@@ -71,10 +71,22 @@ namespace DatabaseBuddy.Core.Extender
       catch { return DefaultValue; }
     }
     public static long ByteToMegabyte(this long Value)
-        => (long)(Value / Math.Pow(10, 6));
+    {
+      if (Value < 0) return 0;
+      return (long)(Value / Math.Pow(10, 6));
+    }
+        
     public static double ByteToGigabyte(this long Value)
-    => (double)Math.Round(Value / Math.Pow(10, 9), 2);
+    {
+      if (Value < 0) return 0;
+      return (double)Math.Round(Value / Math.Pow(10, 9), 2);
+    }
+    
     public static long MegaByteToByte(this long Value)
-      => (long)(Value * Math.Pow(10, 6));
+    {
+      if (Value < 0) return 0;
+      return (long)(Value * Math.Pow(10, 6));
+    }
+      
   }
 }

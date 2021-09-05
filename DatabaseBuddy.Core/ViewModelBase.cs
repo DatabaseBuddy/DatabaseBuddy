@@ -1,5 +1,4 @@
 ﻿using DatabaseBuddy.Core.Attributes;
-using DatabaseBuddy.Core.Events;
 using DatabaseBuddy.Core.Extender;
 using System;
 using System.Collections.Concurrent;
