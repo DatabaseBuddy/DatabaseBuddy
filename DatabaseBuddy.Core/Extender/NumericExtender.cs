@@ -17,6 +17,11 @@ namespace DatabaseBuddy.Core.Extender
       catch { return DefaultValue; }
     }
 
+    public static long ToLongValue(this long Value)
+    {
+      return Value;
+    }
+
     public static long ToLongValue(this long? Value)
     {
       return !Value.HasValue ? 0 : Value.Value;
@@ -27,6 +32,10 @@ namespace DatabaseBuddy.Core.Extender
     }
 
     #region [ToDouble]
+    public static double ToDoubleValue(this double Value)
+    {
+      return Value;
+    }
     public static double ToDoubleValue(this double? Value)
     {
       if (!Value.HasValue)
@@ -71,22 +80,19 @@ namespace DatabaseBuddy.Core.Extender
       catch { return DefaultValue; }
     }
     public static long ByteToMegabyte(this long Value)
-    {
-      if (Value < 0) return 0;
-      return (long)(Value / Math.Pow(10, 6));
-    }
-        
+        => (long)(Value / Math.Pow(10, 6));
+
     public static double ByteToGigabyte(this long Value)
     {
       if (Value < 0) return 0;
       return (double)Math.Round(Value / Math.Pow(10, 9), 2);
     }
-    
     public static long MegaByteToByte(this long Value)
-    {
-      if (Value < 0) return 0;
-      return (long)(Value * Math.Pow(10, 6));
-    }
-      
+        => (long)(Value * Math.Pow(10, 6));
+    public static double MegaByteToGigaByte(this long Value)
+        => (double)(Value / Math.Pow(10, 3));
+
+    public static double GigaByteToMegaByte(this long Value)
+            => (double)(Value * Math.Pow(10, 3));
   }
 }

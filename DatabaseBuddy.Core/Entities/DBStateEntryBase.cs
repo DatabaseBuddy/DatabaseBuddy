@@ -54,7 +54,7 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [LDFSize]
-    public long LDFSize => this.GetLDFFileSize();
+    public long LDFSize { get; set; }
     #endregion
 
     #region [MDFLocation]
@@ -62,11 +62,11 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [MDFSize]
-    public long MDFSize => this.GetMDFFileSize();
+    public long MDFSize { get; set; } /*this.GetMDFFileSize();*/
     #endregion
 
     #region AllBackupSize
-    public double AllBackupSize { get; set; }
+    public long AllBackupSize { get; set; }
     #endregion
 
     #region [HasODBCEntry]
@@ -82,7 +82,7 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [CutLogfileText]
-    public string CutLogfileText => $"Cut Log Size: {LDFSize.ByteToMegabyte()} MB";
+    public string CutLogfileText => $"Cut Log Size: {LDFSize} MB";
     #endregion
 
     #region [RestrictedRights]
@@ -110,11 +110,11 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [DataBaseSize]
-    public long DataBaseSize => MDFSize + LDFSize;
+    public long DataBaseSize => (MDFSize + LDFSize).MegaByteToGigaByte().ToLongValue();
     #endregion
 
     #region [InformationString]
-    public string InformationString => $"Name: {DBName}\nData File: {MDFSize.ByteToMegabyte()} MB \nLog Size: {LDFSize.ByteToMegabyte()} MB \nSum: {DataBaseSize.ByteToMegabyte()} MB" +
+    public string InformationString => $"Name: {DBName}\nData File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize.GigaByteToMegaByte()} MB" +
             $"\nData Location: {MDFLocation} \nLog Location: {LDFLocation}";
     #endregion
 
@@ -135,7 +135,7 @@ namespace DatabaseBuddy.Core.Entities
 
     #region [RestoreBackupTooltip]
     public string RestoreBackupTooltip => AllBackups.IsNull() || AllBackups.Length == 0 ? "No Backups found"
-  : $"{AllBackups.Length} Backups found ({AllBackupSize} GB)";
+  : $"{AllBackups.Length} Backups found ({Math.Round(AllBackupSize.MegaByteToGigaByte(), 2)} GB)";
     #endregion
 
     #endregion

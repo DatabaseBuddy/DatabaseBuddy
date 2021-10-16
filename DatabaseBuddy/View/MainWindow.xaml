@@ -71,6 +71,7 @@
                 <Button HorizontalContentAlignment="Left"
                          Height="22"
                          Content="{Binding MultiModeToggleCaption}"
+                        VerticalContentAlignment="Top"
                          Command="{Binding SwitchMultiMode}"
                          Margin="0 0 10 0"/>
                 <Button HorizontalContentAlignment="Left"
@@ -81,7 +82,7 @@
                          Margin="0 0 10 0"/>
                 <StackPanel Orientation="Horizontal"
                     Margin="0 0 10 0"
-                    Visibility="{Binding IsAdmin}">
+                    Visibility="{Binding IsWarningVisible}">
                     <Image Source="/Resources/warning.png"
                  Visibility="Visible"
                  Height="16"
@@ -91,7 +92,8 @@
                             Margin="5 0 0 0"/>
                     <Button Content="Restart in Admin Mode" 
                             Command="{Binding RestartAsAdmin}"
-                            Margin="5 0 0 0"/>
+                            Margin="5 0 10 0"
+                            Height="22"/>
                 </StackPanel>
                 <mah:ToggleSwitch Content="Settings"
                                   Command="{Binding ToggleSettings}"/>
@@ -105,14 +107,16 @@
                          Width="300"
                          Height="22"
                          TextChanged="__FilterChanged"
-                         mah:TextBoxHelper.ClearTextButton="{Binding FilterClearButtonVisibility}"
+                         mah:TextBoxHelper.ClearTextButton="True"
                          mah:TextBoxHelper.AutoWatermark="True"
                          mah:TextBoxHelper.Watermark="Filter"/>
                 <TextBlock Text="{Binding AllDBSize, StringFormat={}All Databases: {0} GB}" 
                            VerticalAlignment="Center"
-                           Margin="15 0 0 0"/>
+                           Margin="15 0 0 0"
+                           Visibility="{Binding IsAdmin}"/>
                 <TextBlock VerticalAlignment="Center"
-                           Margin="15 0 0 0">
+                           Margin="15 0 0 0"
+                           Visibility="{Binding IsAdmin}">
                     <TextBlock.Text>
                         <MultiBinding StringFormat="{}All Backups ({0}): {1} GB">
                             <Binding Path="AllBackupCount" />
@@ -122,7 +126,8 @@
                 </TextBlock>
                 <TextBlock Text="{Binding AllSize, StringFormat={}Whole Size: {0} GB}" 
                            VerticalAlignment="Center"
-                           Margin="15 0 0 0"/>
+                           Margin="15 0 0 0"
+                           Visibility="{Binding IsAdmin}"/>
             </StackPanel>
             <ListBox x:Name="lbDataBases" 
                       Grid.Row="2" 
@@ -235,6 +240,8 @@
                             <Button Content="{Binding HandleODBCState}"
                              Command="{Binding DataContext.GenerateODBCEntry,
                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                                    IsEnabled="{Binding DataContext.IsAdminMode,
+                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
                              CommandParameter="{Binding}"
                              Margin="0 0 10 0"/>
 
@@ -243,6 +250,14 @@
                                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
                                     CommandParameter="{Binding}"
                                     Margin="0 0 10 0"/>
+                            <Button Command="{Binding DataContext.CopyToLocal,
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
+                                    CommandParameter="{Binding}"
+                                    Margin="0 0 10 0"
+                      Visibility="{Binding DataContext.IsLocalVisibility,
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}">
+                                <TextBlock Text="{Binding DataBaseSize, StringFormat={}Copy to local ({0} GB)}" />
+                            </Button>
                             <Button Content="{Binding RestoreBackupCaption}"
                                     Command="{Binding DataContext.RestoreBackup,
                                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
@@ -252,7 +267,9 @@
                                     ToolTip="{Binding RestoreBackupTooltip}"/>
                             <Label Content="{Binding TrackedFileState}"
                                    Margin="0 0 10 0"
-                                   VerticalAlignment="Center"/>
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding DataContext.IsAdmin,
+                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"/>
                             <Path Data="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" 
                                   Fill="Red"
                                   ToolTip="Maximum Filesize is exceeded"
@@ -334,6 +351,7 @@
                                 <RowDefinition />
                                 <RowDefinition />
                                 <RowDefinition />
+                                <RowDefinition />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -347,7 +365,8 @@
                                                Grid.Column="1"
                                                Minimum="0"
                                                Maximum="100000000"
-                                               Value="{Binding MaxLogSize, Mode=TwoWay}"/>
+                                               Value="{Binding MaxLogSize, Mode=TwoWay}"
+                                 Margin="0 0 10 0"/>
                             <Label Content="Show System databases"
                                    Grid.Row="1"
                                    Grid.Column="0" />
@@ -371,9 +390,19 @@
                                                Grid.Column="1" 
                                                Minimum="3"
                                                Value="{Binding MaxBackupCount, Mode=TwoWay}"
-                                               IsEnabled="{Binding AutoCleanBackups}"/>
+                                               IsEnabled="{Binding AutoCleanBackups}"
+                                 Margin="0 0 10 0"/>
+                            <!--<Label Grid.Row="4"
+                     Grid.Column="0">
+                <TextBlock>Public Directory for Copy<LineBreak/>Databases from any Server</TextBlock>
+              </Label>
+              <Button Content="{Binding PublicDirectory}"
+                       Grid.Row="4"
+                      Grid.Column="1"
+                       Margin="0 5 10 0"
+                      Command="{Binding ChooseDirectory}"/>-->
                             <Button Content="Delete All Backups"
-                                    Grid.Row="4" 
+                                    Grid.Row="5" 
                                     Grid.ColumnSpan="2"
                                     Margin="5 5 0 0"
                                     Command="{Binding DeleteAllBackups}"/>
@@ -399,7 +428,7 @@
                                     Grid.Row="0"
                                     Grid.Column="0"/>
                             <TextBox Height="22"
-                                     mah:TextBoxHelper.ClearTextButton="{Binding ServerNameClearButtonVisibility}"
+                                     mah:TextBoxHelper.ClearTextButton="True"
                                      mah:TextBoxHelper.AutoWatermark="True"
                                      mah:TextBoxHelper.Watermark="Servername"
                                      Text="{Binding ServerName, Mode=TwoWay}"

@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.AccessControl;
 using System.Security.Principal;
 using System.ServiceProcess;
 using System.Windows;
@@ -61,6 +62,8 @@ namespace DatabaseBuddy.ViewModel
     private static int m_MaxBackupCount;
     private bool m_AutoCleanBackups;
     public bool SelectionChangeLocked;
+    private static string m_PublicDirectory;
+    private string tmpDirectory = @$"{PublicDirectory}\tmpDirectory";
     #endregion
 
     #region [Ctor]
@@ -73,6 +76,7 @@ namespace DatabaseBuddy.ViewModel
         MetroWnd = tmpMetroWindow;
       }
       __GetRegistryValues();
+      __CreatePublicDirectory();
       __InitializeCommands();
       __GetExtendedDBInformations();
       m_systemDataBases = new List<string> { "master", "tempdb", "model", "msdb" };
@@ -85,6 +89,36 @@ namespace DatabaseBuddy.ViewModel
       Execute_Reload();
     }
 
+
+    #endregion
+
+    #region [__CreatePublicDirectory]
+    private void __CreatePublicDirectory()
+    {
+      if (m_PublicDirectory.IsNullOrEmpty() && IsAdminMode)
+      {
+        return;
+        var Root = Directory.GetDirectoryRoot(Environment.CurrentDirectory);
+        var tmpDirectory = $"{Root}\\tmpPublicDirectory";
+        if (!Directory.Exists(tmpDirectory))
+          Directory.CreateDirectory(tmpDirectory);
+
+        var dInfo = new DirectoryInfo(tmpDirectory);
+        var sec = dInfo.GetAccessControl();
+
+        // Using this instead of the "Everyone" string means we work on non-English systems.
+
+
+        var everyone = new SecurityIdentifier(WellKnownSidType.WorldSid, null/*AccountDomainUsersSid, WindowsIdentity.GetCurrent().User.AccountDomainSid*/);
+        sec.AddAccessRule(new FileSystemAccessRule(everyone, FileSystemRights.FullControl | FileSystemRights.Synchronize, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+        dInfo.SetAccessControl(sec);
+        var info = new ProcessStartInfo("net", $"share MyNewShare={tmpDirectory}")
+        {
+          CreateNoWindow = true
+        };
+        Process.Start(info);
+      }
+    }
     #endregion
 
     #region [Commands]
@@ -121,6 +155,8 @@ namespace DatabaseBuddy.ViewModel
     public ICommand ResetScaling { get; set; }
     public ICommand DeleteAllBackups { get; set; }
     public ICommand DeleteSelectedDBBackups { get; set; }
+    public ICommand ChooseDirectory { get; set; }
+    public ICommand CopyToLocal { get; set; }
 
     #endregion
 
@@ -137,17 +173,28 @@ namespace DatabaseBuddy.ViewModel
       set
       {
         m_DBFilter = value;
+        if (ListBoxDbs == null)
+          return;
         ListBoxDbs.ItemsSource = null;
         if (value.IsNullOrEmpty())
           ListBoxDbs.ItemsSource = DBEntries;
         else
           ListBoxDbs.ItemsSource = DBEntries.Where(x => x.DBName.Contains(value.ToString(), StringComparison.InvariantCultureIgnoreCase));
-        OnPropertyChanged(nameof(FilterClearButtonVisibility));
       }
     }
 
-    public bool FilterClearButtonVisibility => DBFilter.IsNotNullOrEmpty();
-    public bool ServerNameClearButtonVisibility => ServerName.IsNotNullOrEmpty();
+    public static string PublicDirectory
+    {
+      get
+      {
+        return m_PublicDirectory.IsNotNullOrEmpty() ? m_PublicDirectory : string.Empty; //Or Any default here or __CreatePublicFolder
+      }
+      set
+      {
+        m_PublicDirectory = value;
+        __WriteRegistryValue(nameof(PublicDirectory), value);
+      }
+    }
 
     public bool FileTrackingEnabled
     {
@@ -285,13 +332,13 @@ namespace DatabaseBuddy.ViewModel
       }
     }
 
-    public double AllDBSize => DBEntries.Select(x => x.DataBaseSize).Sum().ByteToGigabyte();
-    public double AllBackupSize => DBEntries.Select(x => x.AllBackupSize).Sum();
+    public double AllDBSize => Math.Round(DBEntries.Select(x => x.DataBaseSize).Sum().ToDoubleValue(), 2);
+    public double AllBackupSize => Math.Round(DBEntries.Select(x => x.AllBackupSize).Sum().MegaByteToGigaByte(), 2);
     public double AllSize => Math.Round(AllDBSize + AllBackupSize, 2);
     public int AllBackupCount => DBEntries.Select(x => x.AllBackups.Length).Sum();
 
     [DependsUpon(nameof(UnusedFiles))]
-    public string DeleteUnusedFilesCaption => !UnusedFiles.Any() ? "No unused database files" : $"Delete {UnusedFiles.Count} unused database files";
+    public string DeleteUnusedFilesCaption => !UnusedFiles.Any() ? "Delete unused database files" : $"Delete {UnusedFiles.Count} unused database files";
 
     [DependsUpon(nameof(MultiMode))]
     public SelectionMode ListBoxSelectionMode => MultiMode ? SelectionMode.Multiple : SelectionMode.Single;
@@ -299,7 +346,9 @@ namespace DatabaseBuddy.ViewModel
     [DependsUpon(nameof(MultiMode))]
     public Visibility SelectAllVisibility => MultiMode ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility IsAdmin => IsAdminMode ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility IsAdmin => IsAdminMode ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility IsWarningVisible => !IsAdminMode ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility IsLocalVisibility => __IsLocal() ? Visibility.Collapsed : Visibility.Visible;
 
     public bool IsAdminMode => new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
@@ -369,7 +418,6 @@ namespace DatabaseBuddy.ViewModel
         m_Server = value?.Trim() ?? "localhost";
         OnPropertyChanged(nameof(ServerName));
         OnPropertyChanged(nameof(SystemInformation));
-        OnPropertyChanged(nameof(ServerNameClearButtonVisibility));
       }
     }
 
@@ -714,8 +762,9 @@ namespace DatabaseBuddy.ViewModel
           return;
         Db.ExecuteScalar("USE [master] SELECT TOP (1) xserver_name FROM [master].[dbo].[spt_fallback_db]");
         __ReloadDBs();
-        DBEntries.ForEach(x => x.AllBackups = x.GetBackups());
-        __GetUnusedDataBaseFiles();
+        DBEntries.ForEach(x => x.AllBackups = x.GetBackups(IsAdminMode));
+        if (IsAdminMode)
+          __GetUnusedDataBaseFiles();
         __SetMultiMode(false);
         __AssignGeneralProps();
         if (ListBoxDbs != null)
@@ -732,7 +781,7 @@ namespace DatabaseBuddy.ViewModel
           DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.LDFLocation)));
           DBEntries.ForEach(x => Directories.Add(Path.GetDirectoryName(x.MDFLocation)));
           Directories = Directories.Distinct().ToList();
-          Directories.ForEach(x => ObjectObservation.CleanDirectories(x));
+          Directories.ForEach(x => ObjectObservation.CleanDirectories(x, IsAdminMode));
         }
         __OnPropertyChanged();
       }
@@ -1077,22 +1126,24 @@ namespace DatabaseBuddy.ViewModel
     #region [Execute_RestartService]
     public void Execute_RestartService(object obj = null)
     {
-      ServiceController service = new ServiceController(m_InstanceName);
-      try
+      using (ServiceController service = new ServiceController(m_InstanceName))
       {
-        int millisec1 = Environment.TickCount;
-        TimeSpan timeout = TimeSpan.FromMilliseconds(2000);
+        try
+        {
+          int millisec1 = Environment.TickCount;
+          TimeSpan timeout = TimeSpan.FromMilliseconds(2000);
 
-        service.Stop();
-        service.WaitForStatus(ServiceControllerStatus.Stopped, timeout);
+          service.Stop();
+          service.WaitForStatus(ServiceControllerStatus.Stopped, timeout);
 
-        service.Start();
-        service.WaitForStatus(ServiceControllerStatus.Running, timeout);
-        DialogManager.ShowModalMessageExternal(MetroWnd, "Successful Restarted", $"SQL Server Instance '{m_InstanceName}' was restarted successful");
-      }
-      catch (Exception ex)
-      {
-        __ThrowMessage($"{nameof(Execute_RestartService)} failed!", ex.ToString());
+          service.Start();
+          service.WaitForStatus(ServiceControllerStatus.Running, timeout);
+          DialogManager.ShowModalMessageExternal(MetroWnd, "Successful Restarted", $"SQL Server Instance '{m_InstanceName}' was restarted successful");
+        }
+        catch (Exception ex)
+        {
+          __ThrowMessage($"{nameof(Execute_RestartService)} failed!", ex.ToString());
+        }
       }
     }
     #endregion
@@ -1168,6 +1219,59 @@ namespace DatabaseBuddy.ViewModel
       finally
       {
         Execute_Reload();
+      }
+    }
+    #endregion
+
+    #region [Execute_ChooseDirectory]
+    public void Execute_ChooseDirectory(object obj = null)
+    {
+      try
+      {
+        //var Result = FileChooser.ChooseFile();
+      }
+      catch (Exception ex)
+      {
+        __ThrowMessage($"{nameof(Execute_ChooseDirectory)} failed!", ex.ToString());
+      }
+      finally
+      {
+        //Execute_Reload();
+      }
+    }
+    #endregion
+
+    #region [Execute_CopyToLocal]
+    public void Execute_CopyToLocal(object sender)
+    {
+      try
+      {
+        if (!Directory.Exists(tmpDirectory))
+          Directory.CreateDirectory(tmpDirectory);
+        if (MultiMode && SelectedDbs.Any())
+        {
+          __BackupDatabases(SelectedDbs, true, true);
+          SelectedDbs.ForEach(x => x.LastBackupPath = @$"{tmpDirectory}\{x.DBName}.bak");
+          ServerName = Environment.MachineName;
+          m_db = null;
+          __RestoreBackup(SelectedDbs, true);
+        }
+        if (sender is DBStateEntry State)
+        {
+          __BackupDatabases(new List<DBStateEntry> { State }, true, true);
+          State.LastBackupPath = @$"{tmpDirectory}\{State.DBName}.bak";
+          ServerName = Environment.MachineName;
+          m_db = null;
+          __RestoreBackup(new List<DBStateEntry> { State }, true);
+        }
+      }
+      catch (Exception ex)
+      {
+        __ThrowMessage($"{nameof(Execute_BackupSelectedDataBase)} failed!", ex.ToString());
+      }
+      finally
+      {
+        Directory.Delete(tmpDirectory, true);
       }
     }
     #endregion
@@ -1258,8 +1362,8 @@ namespace DatabaseBuddy.ViewModel
         return;
       __ThrowMessage("Connection Failed", sender.ToString());
       skipReload = true;
-      ServerName = GetRegistryValue(nameof(ServerName));
-      Password = string.Empty;
+      ServerName = "localhost";
+      //Password = string.Empty;
       m_db = null;
       Execute_Reload();
     }
@@ -1280,6 +1384,7 @@ namespace DatabaseBuddy.ViewModel
       ScalingValue = GetRegistryValue(nameof(ScalingValue)).ToDoubleValue();
       MaxBackupCount = GetRegistryValue(nameof(MaxBackupCount)).ToInt32Value();
       AutoCleanBackups = GetRegistryValue(nameof(AutoCleanBackups)).ToBooleanValue();
+      m_PublicDirectory = GetRegistryValue(nameof(PublicDirectory)).ToStringValue();
     }
     #endregion
 
@@ -1588,10 +1693,12 @@ namespace DatabaseBuddy.ViewModel
             if (PathReader["type_desc"].ToStringValue().Equals("LOG"))
             {
               DBEntry.LDFLocation = PathReader["physical_name"].ToStringValue();
+              DBEntry.LDFSize = PathReader["Size"].ToLongValue();
             }
             else
             {
               DBEntry.MDFLocation = PathReader["physical_name"].ToStringValue();
+              DBEntry.MDFSize = PathReader["Size"].ToLongValue().ToLongValue();
             }
           }
           PathReader.Close();
@@ -1600,6 +1707,8 @@ namespace DatabaseBuddy.ViewModel
       }
     }
     #endregion
+
+
 
     #region [__KillConnections]
     private void __KillConnections(List<DBStateEntry> DataBaseEntries)
@@ -1756,8 +1865,8 @@ namespace DatabaseBuddy.ViewModel
     #region [__GetLogicalFileNames]
     private Dictionary<string, string> __GetLogicalFileNames(string BakPath)
     {
-      string DataFile = string.Empty;
-      string LogFile = string.Empty;
+      var DataFile = string.Empty;
+      var LogFile = string.Empty;
       var Cmd = $"RESTORE FILELISTONLY FROM DISK = '{BakPath}'";
       using (var Reader = Db.GetDataReader(Cmd))
       {
@@ -1803,6 +1912,8 @@ namespace DatabaseBuddy.ViewModel
         {
           foreach (var DataBase in DataBaseEntries)
           {
+            if (!File.Exists(DataBase.LastBackupPath))
+              continue;
             var BackupPrevData = __GetLogicalFileNames(DataBase.LastBackupPath);
             if (DataBase.LastBackupPath.Length == 0)
               continue;
@@ -1810,13 +1921,14 @@ namespace DatabaseBuddy.ViewModel
             var Cmd = "USE[master] \n";
             _ = builder.Append(Cmd);
 
+            __GetExtendedDBInformations();
             builder.Append($@"RESTORE DATABASE [{DataBase.DBName}]
 FROM DISK = N'{DataBase.LastBackupPath}'
 WITH REPLACE,
     MOVE '{BackupPrevData["DataFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.mdf',
     MOVE '{BackupPrevData["LogFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.ldf'");
             Cmd = builder.ToString();
-            _ = Db.ExecuteNonQuery(Cmd); ;
+            _ = Db.ExecuteNonQuery(Cmd, (DataBase.DataBaseSize * 5).ToInt32Value()); ;
           }
         }
         Execute_Reload();
@@ -1831,7 +1943,7 @@ WITH REPLACE,
     #endregion
 
     #region [__BackupDatabases]
-    private void __BackupDatabases(List<DBStateEntry> Entries)
+    private void __BackupDatabases(List<DBStateEntry> Entries, bool BackUpToLocalSharedFolder = false, bool SilentBackup = false)
     {
       __ActivateConnections(Entries);
       var BackupTime = DateTime.Now.ToString("ddMMyyyy HHmmss");
@@ -1846,27 +1958,43 @@ WITH REPLACE,
               || item.DBName.Equals("tempdb", StringComparison.InvariantCultureIgnoreCase))
             continue;
           __HandleBackupAutoClean(item);
-          var BackupPath = Path.GetDirectoryName(item.MDFLocation) + $@"\backup\{BackupTime}";
-          _ = Directory.CreateDirectory(BackupPath);
-          _ = builder.Append($@"BACKUP DATABASE [{item.DBName}]
+          string BackupPath = string.Empty;
+          if (Directory.Exists(Path.GetDirectoryName(item.MDFLocation)))
+          {
+            BackupPath = Path.GetDirectoryName(item.MDFLocation) + $@"\backup\{BackupTime}";
+            _ = Directory.CreateDirectory(BackupPath);
+          }
+          if (BackUpToLocalSharedFolder)
+          {
+            _ = builder.Append($@"BACKUP DATABASE [{item.DBName}]
+TO DISK = '{tmpDirectory}\{item.DBName}.bak';");
+          }
+          else
+          {
+            if (Directory.Exists(Path.GetDirectoryName(item.MDFLocation)))
+            {
+              _ = builder.Append($@"BACKUP DATABASE [{item.DBName}]
 TO DISK = '{BackupPath}\{item.DBName}.bak';");
+            }
+          }
+          CmdBackup = builder.ToString();
+          var Result = Db.ExecuteNonQuery(CmdBackup/*, (item.DataBaseSize * 5).ToInt32Value()*/);
         }
-        CmdBackup = builder.ToString();
-        _ = Db.ExecuteNonQuery(CmdBackup);
       }
-      DialogManager.ShowModalMessageExternal(MetroWnd, "Backups done", "Backups successful created");
+      if (!SilentBackup)
+        DialogManager.ShowModalMessageExternal(MetroWnd, "Backups done", "Backups created");
     }
 
     private void __HandleBackupAutoClean(DBStateEntry item)
     {
-      if (!AutoCleanBackups || MaxBackupCount > item.AllBackups.Length || !IsAdminMode)
+      if (!AutoCleanBackups || MaxBackupCount > item.AllBackups.Length || !IsAdminMode || !__IsLocal())
         return;
       var FileInfos = new List<FileInfo>();
       item.AllBackups.ToList().ForEach(x => FileInfos.Add(new FileInfo(x)));
       FileInfos = FileInfos.OrderBy(x => x.CreationTime.Date).ThenBy(y => y.CreationTime.TimeOfDay).ToList();
       FileInfos.RemoveFrom(FileInfos.Count + 1 - MaxBackupCount);
       FileInfos.ForEach(x => File.Delete(x.FullName));
-      ObjectObservation.CleanDirectories($"{Path.GetDirectoryName(item.MDFLocation)}\\backup");
+      ObjectObservation.CleanDirectories($"{Path.GetDirectoryName(item.MDFLocation)}\\backup", IsAdminMode);
     }
     #endregion
 
@@ -1934,7 +2062,7 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
     private void __RunCutLogFile(List<DBStateEntry> Entries)
     {
       //Disable Not Working yet
-      return;
+      //return;
       var tmpGuid = Guid.NewGuid();
       __KillConnections(Entries);
       if (Db != null)
@@ -1947,8 +2075,7 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
           __DeleteDataBase(new List<DBStateEntry> { Entry }, true);
           File.Move($@"{Path.GetDirectoryName(Entry.MDFLocation)}\{NewName}", $@"{Path.GetDirectoryName(Entry.MDFLocation)}\{OldName}");
           var Cmd = $@"CREATE DATABASE [{Entry.DBName}] ON
-(FILENAME = N'{Entry.MDFLocation}')
-FOR ATTACH;";
+(FILENAME = N'{Entry.MDFLocation}') FOR ATTACH;";
           Db.ExecuteNonQuery(Cmd);
         }
       }
@@ -2160,6 +2287,8 @@ CREATE DATABASE [{Entry.CloneName}]
       ResetScaling = new DelegateCommand<object>(Execute_ResetScaling);
       DeleteAllBackups = new DelegateCommand<object>(Execute_DeleteAllBackups);
       DeleteSelectedDBBackups = new DelegateCommand<object>(Execute_DeleteSelectedDBBackups);
+      ChooseDirectory = new DelegateCommand<object>(Execute_ChooseDirectory);
+      CopyToLocal = new DelegateCommand<object>(Execute_CopyToLocal);
     }
     #endregion
 
