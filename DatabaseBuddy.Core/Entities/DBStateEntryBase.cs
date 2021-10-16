@@ -114,7 +114,7 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [InformationString]
-    public string InformationString => $"Name: {DBName}\nData File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {DataBaseSize.GigaByteToMegaByte()} MB" +
+    public string InformationString => $"Name: {DBName}\nData File: {MDFSize} MB \nLog Size: {LDFSize} MB \nSum: {MDFSize + LDFSize} MB" +
             $"\nData Location: {MDFLocation} \nLog Location: {LDFLocation}";
     #endregion
 
