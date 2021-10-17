@@ -40,6 +40,8 @@ namespace DatabaseBuddy.Core.Entities
     #region [LastBackupPath]
     public string LastBackupPath { get; set; }
     #endregion
+    public string SelectedBackup { get; set; }
+    public string NewNameForRestore { get; set; }
 
     #region [LastBackupTime]
     public string LastBackupTime { get; set; }

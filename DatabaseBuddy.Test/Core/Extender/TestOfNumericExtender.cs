@@ -105,7 +105,7 @@ namespace DatabaseBuddy.Test.Core.Extender
       Assert.AreEqual(1L, OneAndAHalfMegabyte.ByteToMegabyte());
       Assert.AreEqual(10L, TenMegabyte.ByteToMegabyte());
       Assert.AreEqual(0L, NegativeOne.ByteToMegabyte());
-      Assert.AreEqual(0L, NegativeOneMegabyte.ByteToMegabyte());
+      Assert.AreEqual(-1L, NegativeOneMegabyte.ByteToMegabyte());
     }
     #endregion
 
@@ -139,7 +139,7 @@ namespace DatabaseBuddy.Test.Core.Extender
 
       Assert.AreEqual(1000000L, Megabyte.MegaByteToByte());
       Assert.AreEqual(10000000L, TenMegabyte.MegaByteToByte());
-      Assert.AreEqual(0L, NegativeOne.MegaByteToByte());
+      Assert.AreEqual(-1000000L, NegativeOne.MegaByteToByte());
     }
     #endregion
   }

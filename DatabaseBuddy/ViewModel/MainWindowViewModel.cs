@@ -297,6 +297,8 @@ namespace DatabaseBuddy.ViewModel
 
     public List<DBStateEntry> SelectedDbs => ListBoxDbs.SelectedItems.Cast<DBStateEntry>().ToList();
 
+    public string CloneHeader => "Clone";
+
     public DBStateEntry SelectedDB
     {
       get => m_SelectedDB;
@@ -304,8 +306,70 @@ namespace DatabaseBuddy.ViewModel
       {
         if (SelectionChangeLocked)
           return;
+        if (SelectedDB == value)
+          return;
         m_SelectedDB = value;
         OnPropertyChanged(nameof(SelectedDB));
+        __SetMenuItems();
+      }
+    }
+
+    private void __SetMenuItems()
+    {
+      if (ListBoxDbs != null)
+      {
+        var ContextMenu = ListBoxDbs.ContextMenu.Items;
+        var RestoreHeader = "Restore Backup";
+        var RestoreMenuItem = new MenuItem { Header = RestoreHeader };
+        MenuItem CloneMenuItem = new MenuItem();
+        foreach (var item in ContextMenu)
+        {
+          var tmpMenuItem = (MenuItem)item;
+          if (tmpMenuItem.Header != null && tmpMenuItem.Header.Equals(RestoreHeader))
+          {
+            ContextMenu.Remove(item);
+            break;
+          }
+        }
+        foreach (var item in ContextMenu)
+        {
+          var tmpMenuItem = (MenuItem)item;
+          if (tmpMenuItem.Header != null && tmpMenuItem.Header.Equals(CloneHeader))
+          {
+            tmpMenuItem.Items.Clear();
+            CloneMenuItem = tmpMenuItem;
+            break;
+          }
+        }
+
+        CloneMenuItem.Items.Add(new MenuItem
+        {
+          Header = $"[{m_SelectedDB.DBName}] Clone active database",
+          Command = CloneDataBase
+        });
+
+        foreach (var item in SelectedDB.AllBackups)
+        {
+          if (File.Exists(item))
+          {
+            var BackupFileInfo = new FileInfo(item);
+            RestoreMenuItem.Items.Add(new MenuItem
+            {
+              Header = $"[{m_SelectedDB.DBName}] Restore Backup from {BackupFileInfo.LastWriteTime}",
+              Command = RestoreBackup,
+              CommandParameter = item
+            });
+            CloneMenuItem.Items.Add(new MenuItem
+            {
+              Header = $"[{m_SelectedDB.DBName}] Clone from Backup {BackupFileInfo.LastWriteTime}",
+              Command = CloneDataBase,
+              CommandParameter = item
+            });
+          }
+        }
+        if (__IsLocal())
+          ContextMenu.Add(RestoreMenuItem);
+        OnPropertyChanged(nameof(ListBoxDbs));
       }
     }
 
@@ -693,10 +757,9 @@ namespace DatabaseBuddy.ViewModel
     {
       try
       {
-        if (MultiMode && SelectedDbs.Any())
-          __RestoreBackup(SelectedDbs);
-        else if (SelectedDB != null)
-          __RestoreBackup(new List<DBStateEntry> { SelectedDB });
+        if (obj is string SelectedBackup)
+          SelectedDB.SelectedBackup = SelectedBackup;
+        __RestoreBackup(new List<DBStateEntry> { SelectedDB });
       }
       catch (Exception ex)
       {
@@ -952,6 +1015,12 @@ namespace DatabaseBuddy.ViewModel
           __RunCloneDataBase(SelectedDbs);
         else if (SelectedDB != null)
         {
+          if (obj is string && File.Exists(obj.ToString()))
+          {
+            SelectedDB.SelectedBackup = obj.ToString();
+            __RunCloneDatabaseWithAnyName(new List<DBStateEntry> { SelectedDB }, true);
+            return;
+          }
           __RunCloneDatabaseWithAnyName(new List<DBStateEntry> { SelectedDB });
         }
       }
@@ -1892,41 +1961,45 @@ namespace DatabaseBuddy.ViewModel
     #endregion
 
     #region [__RestoreBackup]
-    private void __RestoreBackup(List<DBStateEntry> DataBaseEntries, bool SilentRestore = false)
+    private void __RestoreBackup(List<DBStateEntry> DataBaseEntries, bool SilentRestore = false, bool RestoreFromBackup = false)
     {
       try
       {
         if (DataBaseEntries == null || !DataBaseEntries.Any())
           return;
         var Messagetext = $"Are you sure to restore the following databases?\n";
-        DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName} Last Backup {x.LastBackupTime}\n");
+        DataBaseEntries.Where(x => !x.IsSystemDatabase).ToList().ForEach(x => Messagetext += $"-{x.DBName} Last Backup {x.LastRealBackupTime}\n");
         if (!SilentRestore)
         {
           var RestoreBackupResult = DialogManager.ShowModalMessageExternal(MetroWnd, "Confirm restore", Messagetext, MessageDialogStyle.AffirmativeAndNegative);
           if (RestoreBackupResult == MessageDialogResult.Canceled || RestoreBackupResult == MessageDialogResult.Negative)
             return;
         }
-        __KillConnections(DataBaseEntries);
+        if (!RestoreFromBackup)
+          __KillConnections(DataBaseEntries);
 
         if (Db != null)
         {
           foreach (var DataBase in DataBaseEntries)
           {
-            if (!File.Exists(DataBase.LastBackupPath))
+            var ChoosedBackup = DataBase.SelectedBackup.IsNotNullOrEmpty() ? DataBase.SelectedBackup : DataBase.LastBackupPath;
+            var ChoosedRestoreName = DataBase.NewNameForRestore.IsNotNullOrEmpty() ? DataBase.NewNameForRestore : DataBase.DBName;
+
+            if (!File.Exists(ChoosedBackup))
               continue;
-            var BackupPrevData = __GetLogicalFileNames(DataBase.LastBackupPath);
-            if (DataBase.LastBackupPath.Length == 0)
+            var BackupPrevData = __GetLogicalFileNames(ChoosedBackup);
+            if (ChoosedBackup.Length == 0)
               continue;
             var builder = new System.Text.StringBuilder();
             var Cmd = "USE[master] \n";
             _ = builder.Append(Cmd);
 
             __GetExtendedDBInformations();
-            builder.Append($@"RESTORE DATABASE [{DataBase.DBName}]
-FROM DISK = N'{DataBase.LastBackupPath}'
+            builder.Append($@"RESTORE DATABASE [{ChoosedRestoreName}]
+FROM DISK = N'{ChoosedBackup}'
 WITH REPLACE,
-    MOVE '{BackupPrevData["DataFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.mdf',
-    MOVE '{BackupPrevData["LogFile"]}' TO '{m_DefaultDataPath}{DataBase.DBName}.ldf'");
+    MOVE '{BackupPrevData["DataFile"]}' TO '{m_DefaultDataPath}{ChoosedRestoreName}.mdf',
+    MOVE '{BackupPrevData["LogFile"]}' TO '{m_DefaultDataPath}{ChoosedRestoreName}.ldf'");
             Cmd = builder.ToString();
             _ = Db.ExecuteNonQuery(Cmd, (DataBase.DataBaseSize * 5).ToInt32Value()); ;
           }
@@ -1938,6 +2011,11 @@ WITH REPLACE,
       {
         __ThrowMessage($"{nameof(__RestoreBackup)} failed!", ex.ToString());
         __ActivateConnections(DataBaseEntries);
+      }
+      finally
+      {
+        DBEntries.ForEach(x => x.SelectedBackup = string.Empty);
+        DBEntries.ForEach(x => x.NewNameForRestore = string.Empty);
       }
     }
     #endregion
@@ -2106,10 +2184,17 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
           else
           {
             Db.ExecuteNonQuery($@"USE [MASTER] ALTER DATABASE [{State.DBName}] MODIFY NAME = [{NewName}] ;");
+            __RenameBackups(State, NewName);
             Execute_Reload();
           }
         }
       }
+    }
+
+    private void __RenameBackups(DBStateEntry State, string NewName)
+    {
+      if (IsAdminMode)
+        State.AllBackups.ToList().ForEach(x => File.Move(x, Path.Combine(Path.GetDirectoryName(x), $"{NewName}.bak")));
     }
     #endregion
 
@@ -2118,14 +2203,19 @@ TO DISK = '{BackupPath}\{item.DBName}.bak';");
     #endregion
 
     #region [__RunCloneDataBase]
-    private void __RunCloneDataBase(List<DBStateEntry> Entries)
+    private void __RunCloneDataBase(List<DBStateEntry> Entries, bool RestoreFromBackup = false)
     {
       try
       {
         if (!Entries.Any())
           return;
-        __KillConnections(Entries);
-
+        if (!RestoreFromBackup)
+          __KillConnections(Entries);
+        else
+        {
+          __RestoreBackup(Entries, true, RestoreFromBackup);
+          return;
+        }
         if (Db != null)
         {
           foreach (var Entry in Entries)
@@ -2184,27 +2274,29 @@ CREATE DATABASE [{Entry.CloneName}]
     #endregion
 
     #region [__RunCloneDatabaseWithAnyName]
-    private void __RunCloneDatabaseWithAnyName(List<DBStateEntry> Entries, string Caption = "Choose Clone name", string Message = "Please type a name for the clone")
+    private void __RunCloneDatabaseWithAnyName(List<DBStateEntry> Entries, bool RestoreFromBackup = false, string Caption = "Choose Clone name", string Message = "Please type a name for the clone")
     {
       var Settings = new MetroDialogSettings();
       Settings.DefaultText = $"{Entries.First().DBName}_Clone";
       var NewName = DialogManager.ShowModalInputExternal(MetroWnd, Caption, Message, Settings)?.Trim();
       if (NewName == null)
         return;
+      if (RestoreFromBackup)
+        Entries.FirstOrDefault().NewNameForRestore = NewName;
       if (NewName.Equals(""))
-        __RunCloneDatabaseWithAnyName(Entries, "Retry", "Clone Name cannot be empty");
+        __RunCloneDatabaseWithAnyName(Entries, RestoreFromBackup, "Retry", "Clone Name cannot be empty");
       else
       {
         if (Db == null)
           return;
         if (DBEntries.Any(x => x.DBName.Equals(NewName, StringComparison.InvariantCultureIgnoreCase)))
         {
-          __RunCloneDatabaseWithAnyName(Entries, "Rename failed", $"Database Name {NewName} already exists. Please try again");
+          __RunCloneDatabaseWithAnyName(Entries, RestoreFromBackup, "Rename failed", $"Database Name {NewName} already exists. Please try again");
         }
         else
         {
           SelectedDB.CloneName = NewName;
-          __RunCloneDataBase(new List<DBStateEntry> { SelectedDB });
+          __RunCloneDataBase(new List<DBStateEntry> { SelectedDB }, RestoreFromBackup);
           Execute_Reload();
           DialogManager.ShowModalMessageExternal(MetroWnd, "Successful cloned", $"Successful cloned '{SelectedDB.DBName}' to {SelectedDB.CloneName}");
         }

@@ -6,6 +6,8 @@ namespace DatabaseBuddy.Core.Extender
   {
     public static void RemoveFrom<T>(this List<T> lst, int from)
     {
+      if (from < 0)
+        return;
       lst.RemoveRange(from, lst.Count - from);
     }
   }

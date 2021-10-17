@@ -150,7 +150,7 @@
                     </i:EventTrigger>
                 </i:Interaction.Triggers>
                 <ListBox.ContextMenu>
-                    <ContextMenu Opened="ContextMenu_Open">
+                    <ContextMenu Opened="ContextMenu_Open" Closed="ContextMenu_Close">
                         <MenuItem Header="Delete"
                         Command="{Binding DeleteSelectedDataBase}"
                         IsEnabled="{Binding RestrictedRights}">
@@ -179,7 +179,7 @@
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Command="{Binding CloneDataBase}"
-                        Header="Clone"
+                        Header="{Binding CloneHeader}"
                         IsEnabled="{Binding RestrictedRights}"
                         HorizontalContentAlignment="Left">
                             <MenuItem.Icon>
@@ -207,6 +207,7 @@
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="{x:Type ListBoxItem}">
                         <EventSetter Event="MouseEnter" Handler="__ListBoxItem_MouseEnter" />
+                        <EventSetter Event="MouseRightButtonUp" Handler="__ListBoxItem_MouseRightButtonDown" />
                     </Style>
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
@@ -258,13 +259,6 @@
                                 RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}">
                                 <TextBlock Text="{Binding DataBaseSize, StringFormat={}Copy to local ({0} GB)}" />
                             </Button>
-                            <Button Content="{Binding RestoreBackupCaption}"
-                                    Command="{Binding DataContext.RestoreBackup,
-                                RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBox}}}"
-                                    CommandParameter="{Binding}"
-                                    IsEnabled="{Binding CanDBRestore}"
-                                    Margin="0 0 10 0"
-                                    ToolTip="{Binding RestoreBackupTooltip}"/>
                             <Label Content="{Binding TrackedFileState}"
                                    Margin="0 0 10 0"
                                    VerticalAlignment="Center"
