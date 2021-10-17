@@ -112,7 +112,7 @@ namespace DatabaseBuddy.Core.Entities
     #endregion
 
     #region [DataBaseSize]
-    public long DataBaseSize => (MDFSize + LDFSize).MegaByteToGigaByte().ToLongValue();
+    public double DataBaseSize => (MDFSize + LDFSize).MegaByteToGigaByte();
     #endregion
 
     #region [InformationString]
