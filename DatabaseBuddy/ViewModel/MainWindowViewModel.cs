@@ -347,7 +347,7 @@ namespace DatabaseBuddy.ViewModel
           Header = $"[{m_SelectedDB.DBName}] Clone active database",
           Command = CloneDataBase
         });
-
+        
         foreach (var item in SelectedDB.AllBackups)
         {
           if (File.Exists(item))
@@ -396,13 +396,13 @@ namespace DatabaseBuddy.ViewModel
       }
     }
 
-    public double AllDBSize => Math.Round(DBEntries.Select(x => x.DataBaseSize).Sum().ToDoubleValue(), 2);
+    public double AllDBSize => Math.Round(DBEntries.Select(x => x.DataBaseSize).Sum(), 2);
     public double AllBackupSize => Math.Round(DBEntries.Select(x => x.AllBackupSize).Sum().MegaByteToGigaByte(), 2);
     public double AllSize => Math.Round(AllDBSize + AllBackupSize, 2);
     public int AllBackupCount => DBEntries.Select(x => x.AllBackups.Length).Sum();
 
     [DependsUpon(nameof(UnusedFiles))]
-    public string DeleteUnusedFilesCaption => !UnusedFiles.Any() ? "Delete unused database files" : $"Delete {UnusedFiles.Count} unused database files";
+    public string DeleteUnusedFilesCaption => !UnusedFiles.Any() ? "No unused database files to delete" : $"Delete {UnusedFiles.Count} unused database files";
 
     [DependsUpon(nameof(MultiMode))]
     public SelectionMode ListBoxSelectionMode => MultiMode ? SelectionMode.Multiple : SelectionMode.Single;
@@ -1767,7 +1767,7 @@ namespace DatabaseBuddy.ViewModel
             else
             {
               DBEntry.MDFLocation = PathReader["physical_name"].ToStringValue();
-              DBEntry.MDFSize = PathReader["Size"].ToLongValue().ToLongValue();
+              DBEntry.MDFSize = PathReader["Size"].ToLongValue();
             }
           }
           PathReader.Close();

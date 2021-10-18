@@ -16,33 +16,12 @@ namespace DatabaseBuddy.Core.Extender
       }
       catch { return DefaultValue; }
     }
-
-    public static long ToLongValue(this long Value)
-    {
-      return Value;
-    }
-
-    public static long ToLongValue(this long? Value)
-    {
-      return !Value.HasValue ? 0 : Value.Value;
-    }
     public static long ToLongValue(this object Value)
     {
       return ToLongValue(Value, 0);
     }
 
     #region [ToDouble]
-    public static double ToDoubleValue(this double Value)
-    {
-      return Value;
-    }
-    public static double ToDoubleValue(this double? Value)
-    {
-      if (!Value.HasValue)
-        return 0;
-
-      return Value.Value;
-    }
     public static double ToDoubleValue(this Object Value, double DefaultValue)
     {
       if (Value == null || DBNull.Value == Value)
