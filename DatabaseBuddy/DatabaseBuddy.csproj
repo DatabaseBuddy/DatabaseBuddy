@@ -25,7 +25,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DatabaseBuddy.Core\DatabaseBuddy.Core.csproj" />
+    <ProjectReference Include="..\DatabaseBuddy.Core\DatabaseBuddy.Core.csproj">
+      <ReferenceSourceTarget></ReferenceSourceTarget>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>
