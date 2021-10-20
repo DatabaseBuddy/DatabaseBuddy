@@ -21,6 +21,11 @@ namespace DatabaseBuddy.Core.Extender
       return ToLongValue(Value, 0);
     }
 
+    public static long ToLongValue(this long? Value)
+    {
+      return !Value.HasValue ? 0 : Value.Value;
+    }
+
     #region [ToDouble]
     public static double ToDoubleValue(this Object Value, double DefaultValue)
     {
@@ -38,6 +43,15 @@ namespace DatabaseBuddy.Core.Extender
     {
       return ToDoubleValue(Value, 0.0d);
     }
+
+    public static double ToDoubleValue(this double? Value)
+    {
+      if (!Value.HasValue)
+        return 0;
+
+      return Value.Value;
+    }
+
     #endregion
 
     public static int ToInt32Value(this object Value, int DefaultValue = 0)
