@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace DatabaseBuddy.Core.Extender
 {
@@ -10,7 +6,8 @@ namespace DatabaseBuddy.Core.Extender
   {
     public static void RemoveFrom<T>(this List<T> lst, int from)
     {
-      if (from < 0) return;
+      if (from < 0)
+        return;
       lst.RemoveRange(from, lst.Count - from);
     }
   }

@@ -2,14 +2,14 @@
 
 namespace DatabaseBuddy.Core.Attributes
 {
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method, AllowMultiple = true)]
-    public class DependsUponAttribute : Attribute
+  [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method, AllowMultiple = true)]
+  public class DependsUponAttribute : Attribute
+  {
+    public DependsUponAttribute(string propertyName)
     {
-        public DependsUponAttribute(string propertyName)
-        {
-            DependencyName = propertyName;
-        }
-
-        public string DependencyName { get; private set; }
+      DependencyName = propertyName;
     }
+
+    public string DependencyName { get; private set; }
+  }
 }

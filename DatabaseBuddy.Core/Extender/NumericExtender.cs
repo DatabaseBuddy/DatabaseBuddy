@@ -16,24 +16,17 @@ namespace DatabaseBuddy.Core.Extender
       }
       catch { return DefaultValue; }
     }
-
-    public static long ToLongValue(this long? Value)
-    {
-      return !Value.HasValue ? 0 : Value.Value;
-    }
     public static long ToLongValue(this object Value)
     {
       return ToLongValue(Value, 0);
     }
 
-    #region [ToDouble]
-    public static double ToDoubleValue(this double? Value)
+    public static long ToLongValue(this long? Value)
     {
-      if (!Value.HasValue)
-        return 0;
-
-      return Value.Value;
+      return !Value.HasValue ? 0 : Value.Value;
     }
+
+    #region [ToDouble]
     public static double ToDoubleValue(this Object Value, double DefaultValue)
     {
       if (Value == null || DBNull.Value == Value)
@@ -50,6 +43,15 @@ namespace DatabaseBuddy.Core.Extender
     {
       return ToDoubleValue(Value, 0.0d);
     }
+
+    public static double ToDoubleValue(this double? Value)
+    {
+      if (!Value.HasValue)
+        return 0;
+
+      return Value.Value;
+    }
+
     #endregion
 
     public static int ToInt32Value(this object Value, int DefaultValue = 0)
@@ -71,22 +73,19 @@ namespace DatabaseBuddy.Core.Extender
       catch { return DefaultValue; }
     }
     public static long ByteToMegabyte(this long Value)
-    {
-      if (Value < 0) return 0;
-      return (long)(Value / Math.Pow(10, 6));
-    }
-        
+        => (long)(Value / Math.Pow(10, 6));
+
     public static double ByteToGigabyte(this long Value)
     {
       if (Value < 0) return 0;
       return (double)Math.Round(Value / Math.Pow(10, 9), 2);
     }
-    
     public static long MegaByteToByte(this long Value)
-    {
-      if (Value < 0) return 0;
-      return (long)(Value * Math.Pow(10, 6));
-    }
-      
+        => (long)(Value * Math.Pow(10, 6));
+    public static double MegaByteToGigaByte(this long Value)
+        => (double)(Value / Math.Pow(10, 3));
+
+    public static double GigaByteToMegaByte(this long Value)
+            => (double)(Value * Math.Pow(10, 3));
   }
 }
